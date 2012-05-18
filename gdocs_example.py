@@ -58,7 +58,7 @@ print "Access token:", token
 print "Creating the Docs client..."
 client = gdata.docs.client.DocsClient(source=APP_NAME)
 client.ssl = True  # Force HTTPS use.
-client.http_client.debug = True  # Turn on HTTP debugging.
+#client.http_client.debug = True  # Turn on HTTP debugging.
 client.auth_token = token
 
 # STEP 6: Authorise the client.
@@ -72,25 +72,31 @@ if client.auth_token:
 
 #col = gdata.docs.data.Resource(type='folder', title='Folder Name')
 #col = client.CreateResource(col)
-
 #doc = gdata.docs.data.Resource(type='document', title='I did this')
 #doc = client.CreateResource(doc, collection=col)
 
 # Create a query matching exactly a title, and include collections
-q = gdata.docs.client.DocsQuery(
-    title='Travel',
-    title_exact='true',
-    show_collections='true'
-)
+#q = gdata.docs.client.DocsQuery(
+#    title='Travel',
+#    title_exact='true',
+#    show_collections='true'
+#)
 
 # Execute the query and get the first entry (if there are name clashes with
 # other folders or files, you will have to handle this).
-folder = client.GetResources(q=q).entry[0]
+#folder = client.GetResources(q=q).entry[0]
 
 # Get the resources in the folder
-contents = client.GetResources(uri=folder.content.src)
+#contents = client.GetResources(uri=folder.content.src)
 
 # Print out the title and the absolute link
-for entry in contents.entry:
-    print entry.title.text, entry.GetSelfLink().href
+#for entry in contents.entry:
+#    print entry.title.text
+
+#entries = client.GetAllResources(uri='/feeds/default/private/full?showfolders=true')
+entries = client.GetAllResources(show_root=True)
+for entry in entries:
+    print entry.title.text, entry.get_resource_type()
+    #if entry.get_resource_type() == "folder":
+    #    print entry.title.text
 

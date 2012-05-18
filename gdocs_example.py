@@ -70,8 +70,6 @@ if client.auth_token:
     # TODO Store it somewhere.
     print "Client access token:", client_access_token
 
-sys.exit(0)
-
 #col = gdata.docs.data.Resource(type='folder', title='Folder Name')
 #col = client.CreateResource(col)
 
@@ -95,3 +93,4 @@ contents = client.GetResources(uri=folder.content.src)
 # Print out the title and the absolute link
 for entry in contents.entry:
     print entry.title.text, entry.GetSelfLink().href
+

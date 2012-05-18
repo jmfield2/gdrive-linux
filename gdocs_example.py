@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import sys
 import httplib2
 import gdata.docs.client

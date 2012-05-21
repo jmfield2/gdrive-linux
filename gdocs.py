@@ -36,7 +36,7 @@ SCOPES = ["https://www.googleapis.com/auth/userinfo.email",
           "https://spreadsheets.google.com/feeds/"]
 USER_AGENT = 'gdocs-sample/1.0'
 
-CONFIG_DIR = '.config/gdrive-linux'
+CONFIG_DIR = '.config/%s' % CLIENT_ID
 TOKEN_FILE = 'token.txt' 
 
 saved_auth = False
@@ -110,23 +110,24 @@ client = token.authorize(client)
 #doc = client.CreateResource(doc, collection=col)
 
 # Create a query matching exactly a title, and include collections
-q = gdata.docs.client.DocsQuery(
-    title='root',
-    title_exact='true',
-    show_collections='true'
-)
+q = gdata.docs.client.DocsQuery(show_root='true', show_collections='true')
 
 # Execute the query and get the first entry (if there are name clashes with
 # other folders or files, you will have to handle this).
-folder = client.GetResources(q=q).entry[0]
+#folder = client.GetResources(q=q).entry[0]
+folder = client.GetResources(q=q, show_root='true')
+print folder
+
+sys.exit(0)
 
 # Get the resources in the folder
-contents = client.GetResources(uri=folder.content.src)
+for folder_entry in folder.entry:
+    contents = client.GetResources(uri=folder_entry.content.src, show_root='true')
 
-# Print out the title.
-for entry in contents.entry:
-    print entry.title.text
-
+    # Print out the title.
+    for entry in contents.entry:
+        print entry.title.text
+    
 #entries = client.GetAllResources(uri='/feeds/default/private/full?showfolders=true')
 #entries = client.GetAllResources(show_root=True)
 #for entry in entries:

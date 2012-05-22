@@ -70,7 +70,7 @@ class DocsSession(object):
         if os.path.exists(tokenfile):
             if not os.path.isfile(tokenfile):
                 sys.exit("Error: path \"%s\" exists but is not a file!" % tokenfile)
-            logging.debug("Reading token...")
+            logging.info("Reading token...")
             f = open(tokenfile, 'r')
             blob = f.read()
             f.close()
@@ -80,7 +80,7 @@ class DocsSession(object):
                     saved_auth = True
         
         # Generate the OAuth 2.0 request token.
-        logging.debug("Generating the request token...")
+        logging.info("Generating the request token...")
         if saved_auth:
             self._token = gdata.gauth.OAuth2Token(client_id=_Config.CLIENT_ID, 
                                                   client_secret=_Config.CLIENT_SECRET, 
@@ -104,7 +104,7 @@ class DocsSession(object):
             
         # Save the refresh token.
         if self._token.refresh_token and not saved_auth:
-            logging.debug("Saving token...")
+            logging.info("Saving token...")
             f = open(tokenfile, 'w')
             blob = gdata.gauth.token_to_blob(self._token)
             f.write(blob)
@@ -112,14 +112,17 @@ class DocsSession(object):
     
     def _setup(self):
         # Create the Google Documents List API client.
-        logging.debug("Creating the Docs client...")
+        logging.info("Creating the Docs client...")
         self._client = gdata.docs.client.DocsClient(source=_Config.APP_NAME)
         #client.ssl = True  # Force HTTPS use.
         #client.http_client.debug = True  # Turn on HTTP debugging.
         
         # Authorise the client.
-        logging.debug("Authorising the Docs client API...")
+        logging.info("Authorising the Docs client API...")
         self._client = self._token.authorize(self._client)
+    
+    def _resourceToUri(self, resource):
+        return resource.content.src
     
     def _pathToUri(self, path):
         if path == '/':
@@ -132,7 +135,7 @@ class DocsSession(object):
     
     def readFolder(self, path):
         # Get the list of items in the specified folder.
-        logging.debug("Reading folder \"%s\"" % path)
+        logging.info("Reading folder \"%s\"" % path)
         uri = self._pathToUri(path)
         items = self._client.GetResources(uri=uri, show_root='true')
         folders = {}
@@ -158,8 +161,8 @@ Utility to access Google Drive on Linux.
 
 """
     parser = optparse.OptionParser(description=helpStr)
-    parser.add_option('-v', '--verbose', dest='verbose', action='store_true', default=False,                 help='Turn on extra logging')
-    parser.add_option('-D', '--debug',   dest='debug',   action='store_true', default=False,                 help='Turn on debug logging')
+    parser.add_option('-v', '--verbose', dest='verbose', action='store_true', default=False, help='Turn on extra logging')
+    parser.add_option('-d', '--debug',   dest='debug',   action='store_true', default=False, help='Turn on debug logging')
     (options, args) = parser.parse_args()
     return options
 

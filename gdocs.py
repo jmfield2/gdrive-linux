@@ -20,6 +20,7 @@ import logging
 import optparse
 import re
 import pprint
+import urlparse
 
 import gdata.gauth
 import gdata.docs.client
@@ -174,6 +175,7 @@ class DocsSession(object):
         logging.debug("Reading folder \"%s\"" % path)
         uri = self._pathToUri(path)
         #items = self._client.GetAllResources(uri=uri, show_root='true')
+        logging.debug("Getting resources from %s" % uri)
         items = self._client.GetAllResources(uri=uri)
         folders = []
         files = []
@@ -182,7 +184,9 @@ class DocsSession(object):
                 folders.append(os.path.join(path, entry.title.text))
             else:
                 files.append(os.path.join(path, entry.title.text))
-            self._pathmap[os.path.join(path, entry.title.text)] = { "resource_id": entry.resource_id.text, "uri": entry.GetSelfLink().href }
+            # Chomp the URI, get rid of the scheme and hostname, leave only the path.
+            self._pathmap[os.path.join(path, entry.title.text)] = { "resource_id": entry.resource_id.text, 
+                                                                    "uri": urlparse.urlsplit(entry.GetSelfLink().href).path }
             self._hashmap[entry.resource_id.text] = os.path.join(path, entry.title.text)
         return folders, files
         

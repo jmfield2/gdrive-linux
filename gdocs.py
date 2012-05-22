@@ -5,26 +5,7 @@ import sys
 import gdata.gauth
 import gdata.docs.client
 
-# OAuth 2.0 Lifecycle:
-# 
-# >>> token = gdata.gauth.OAuth2Token(client_id=CLIENT_ID, client_secret=CLIENT_SECRET, scope=SCOPES, user_agent=USER_AGENT)
-# >>> token.generate_authorize_url(redirect_url=REDIRECT_URI)
-# 'https://accounts.google.com/o/oauth2/auth?<removed>'
-# >>> token.get_access_token(<access_code>)
-# <gdata.gauth.OAuth2Token object at 0x109ba2510>
-# >>> client = gdata.docs.client.DocsClient(source=APP_NAME)
-# >>> token.authorize(client)
-# <gdata.docs.client.DocsClient object at 0x109ba2710>
-# >>> client.GetAllResources()
-#
-# Refresh Token:
-# 
-# >>> refresh_token = token.refresh_token
-# >>> new_token = gdata.gauth.OAuth2Token(client_id=CLIENT_ID, client_secret=CLIENT_SECRET, scope=SCOPES, user_agent=USER_AGENT, refresh_token=refresh_token)
-# >>> new_client = gdata.docs.client.DocsClient(source=APP_NAME)
-# >>> new_token.authorize(new_client)
-
-# Configure OAuth 2.0 data.
+# OAuth 2.0 configuration data.
 APP_NAME = "GDocs-Sample-v1"
 CLIENT_ID = '601991085534.apps.googleusercontent.com'
 CLIENT_SECRET = 'HEGv8uk4mXZ41nLmOlGMbGGu'
@@ -36,8 +17,13 @@ SCOPES = ["https://www.googleapis.com/auth/userinfo.email",
           "https://spreadsheets.google.com/feeds/"]
 USER_AGENT = 'gdocs-sample/1.0'
 
+# Configuration directory.
 CONFIG_DIR = '.config/%s' % CLIENT_ID
+# Token blob file name.
 TOKEN_FILE = 'token.txt' 
+# URI to get the root feed. Can also be used to check if a resource is in the 
+# root collection, i.e. its parent is this.
+ROOT_FEED_URI = "/feeds/default/private/full/folder%3Aroot/contents"
 
 saved_auth = False
 token = None
@@ -62,7 +48,6 @@ if os.path.exists(tokenfile):
     blob = f.read()
     f.close()
     if blob:
-        #print "Read blob:", blob
         token = gdata.gauth.token_from_blob(blob)
         if token:
             saved_auth = True
@@ -88,7 +73,6 @@ if token.refresh_token and not saved_auth:
     print "Saving token..."
     f = open(tokenfile, 'w')
     blob = gdata.gauth.token_to_blob(token)
-    #print "Write blob:", blob
     f.write(blob)
     f.close()
 
@@ -104,34 +88,31 @@ client = token.authorize(client)
 
 # Now, we can do client operations.
 
-#col = gdata.docs.data.Resource(type='folder', title='Folder Name')
-#col = client.CreateResource(col)
-#doc = gdata.docs.data.Resource(type='document', title='I did this')
-#doc = client.CreateResource(doc, collection=col)
+# Examples:
+# 1. Create a folder:
+# >>> folder = gdata.docs.data.Resource(type='folder', title='Folder Name')
+# >>> folder = client.CreateResource(folder)
+#
+# 2. Create a file:
+# >>> doc = gdata.docs.data.Resource(type='document', title='I did this')
+# >>> doc = client.CreateResource(doc, collection=folder)
 
-# Create a query matching exactly a title, and include collections
-q = gdata.docs.client.DocsQuery(show_root='true', show_collections='true')
-
-# Execute the query and get the first entry (if there are name clashes with
-# other folders or files, you will have to handle this).
-#folder = client.GetResources(q=q).entry[0]
-folder = client.GetResources(q=q, show_root='true')
-print folder
-
-sys.exit(0)
-
-# Get the resources in the folder
-for folder_entry in folder.entry:
-    contents = client.GetResources(uri=folder_entry.content.src, show_root='true')
-
-    # Print out the title.
-    for entry in contents.entry:
-        print entry.title.text
-    
-#entries = client.GetAllResources(uri='/feeds/default/private/full?showfolders=true')
-#entries = client.GetAllResources(show_root=True)
-#for entry in entries:
-#    print entry.title.text, entry.get_resource_type()
-#    if entry.get_resource_type() == "folder":
-#        print entry.title.text
-
+# Get the list of items in the root folder.
+items = client.GetResources(uri=ROOT_FEED_URI, show_root='true')
+folders = []
+foldernames = []
+files = []
+filenames = []
+for entry in items.entry:
+    if entry.get_resource_type() == 'folder':
+        folders.append(entry)
+        foldernames.append(entry.title.text)
+    else:
+        files.append(entry)
+        filenames.append(entry.title.text)
+foldernames.sort()
+for folder_name in foldernames:
+    print folder_name
+filenames.sort()
+for filename in filenames:
+    print filename

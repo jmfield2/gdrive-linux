@@ -137,10 +137,10 @@ class DocsSession(object):
         # Get the list of items in the specified folder.
         logging.info("Reading folder \"%s\"" % path)
         uri = self._pathToUri(path)
-        items = self._client.GetResources(uri=uri, show_root='true')
+        items = self._client.GetAllResources(uri=uri, show_root='true')
         folders = {}
         files = {}
-        for entry in items.entry:
+        for entry in items:
             if entry.get_resource_type() == 'folder':
                 folders[entry.title.text] = entry
             else:

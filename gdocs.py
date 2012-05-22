@@ -2,6 +2,9 @@
 
 import os
 import sys
+import logging
+import optparse
+
 import gdata.gauth
 import gdata.docs.client
 
@@ -28,6 +31,7 @@ class _Config(object):
     # URI to get the root feed. Can also be used to check if a resource is in the 
     # root collection, i.e. its parent is this.
     ROOT_FEED_URI = "/feeds/default/private/full/folder%3Aroot/contents"
+
 
 class DocsSession(object):
     
@@ -66,6 +70,7 @@ class DocsSession(object):
         if os.path.exists(tokenfile):
             if not os.path.isfile(tokenfile):
                 sys.exit("Error: path \"%s\" exists but is not a file!" % tokenfile)
+            logging.debug("Reading token...")
             f = open(tokenfile, 'r')
             blob = f.read()
             f.close()
@@ -75,7 +80,7 @@ class DocsSession(object):
                     saved_auth = True
         
         # Generate the OAuth 2.0 request token.
-        print "Generating the request token..."
+        logging.debug("Generating the request token...")
         if saved_auth:
             self._token = gdata.gauth.OAuth2Token(client_id=_Config.CLIENT_ID, 
                                                   client_secret=_Config.CLIENT_SECRET, 
@@ -99,7 +104,7 @@ class DocsSession(object):
             
         # Save the refresh token.
         if self._token.refresh_token and not saved_auth:
-            print "Saving token..."
+            logging.debug("Saving token...")
             f = open(tokenfile, 'w')
             blob = gdata.gauth.token_to_blob(self._token)
             f.write(blob)
@@ -107,13 +112,13 @@ class DocsSession(object):
     
     def _setup(self):
         # Create the Google Documents List API client.
-        print "Creating the Docs client..."
+        logging.debug("Creating the Docs client...")
         self._client = gdata.docs.client.DocsClient(source=_Config.APP_NAME)
         #client.ssl = True  # Force HTTPS use.
         #client.http_client.debug = True  # Turn on HTTP debugging.
         
         # Authorise the client.
-        print "Authorising the Docs client API..."
+        logging.debug("Authorising the Docs client API...")
         self._client = self._token.authorize(self._client)
     
     def _pathToUri(self, path):
@@ -122,10 +127,12 @@ class DocsSession(object):
         else:
             # TODO
             pass
+        logging.debug("path \"%s\" -> URI \"%s\"" % (path, uri))
         return uri
     
     def readFolder(self, path):
         # Get the list of items in the specified folder.
+        logging.debug("Reading folder \"%s\"" % path)
         uri = self._pathToUri(path)
         items = self._client.GetResources(uri=uri, show_root='true')
         folders = {}
@@ -143,11 +150,31 @@ class DocsSession(object):
         return folders, files
     
 
-if __name__ == "__main__":
-    #global opts
-    #opts = getOpts()
+def _parseArgs():
+    helpStr = """
+%prog [options] 
 
-    #if opts.verbose:
+Utility to access Google Drive on Linux.
+
+"""
+    parser = optparse.OptionParser(description=helpStr)
+    parser.add_option('-v', '--verbose', dest='verbose', action='store_true', default=False,                 help='Turn on extra logging')
+    parser.add_option('-D', '--debug',   dest='debug',   action='store_true', default=False,                 help='Turn on debug logging')
+    (options, args) = parser.parse_args()
+    return options
+
+
+def main():
+    global opts
+    opts = _parseArgs()
+
+    if opts.debug:
+        logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
+    elif opts.verbose:
+        logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
+    else:
+        logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.WARNING)
+
 
     docs = DocsSession()
     if docs == None:
@@ -168,3 +195,6 @@ if __name__ == "__main__":
 
     for folder in folders:
         print folder
+
+if __name__ == "__main__":
+    main()

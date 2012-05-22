@@ -1,9 +1,25 @@
 #!/usr/bin/env python
+#
+# Copyright 2012 Jim Lawton. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import os
 import sys
 import logging
 import optparse
+import re
+import pprint
 
 import gdata.gauth
 import gdata.docs.client
@@ -38,8 +54,10 @@ class DocsSession(object):
     def __init__(self):
         "Class constructor."
 
-        self._token = None
-        self._client = None
+        self._token = None      ## OAuth 2,0 token object.
+        self._client = None     ## Google Docs API client object.
+        self._pathmap = {}      ## Maps paths to resource IDs.
+        self._hashmap = {}      ## Maps resource IDs to paths.
         
         self._authorise()
         if self._token == None:
@@ -143,31 +161,54 @@ class DocsSession(object):
         if path == '/':
             uri = _Config.ROOT_FEED_URI
         else:
-            #pathlist = path.split('/')
-            #for pathelem in pathlist:
-            pass
+            if path in self._pathmap:
+                uri = self._pathmap[path]["uri"]
+            else:
+                # TODO: try to handle this better.
+                logging.error("Path \"%s\" is unknown!" % path)
+                raise KeyError
         logging.debug("path \"%s\" -> URI \"%s\"" % (path, uri))
         return uri
     
-    def readFolder(self, path):
-        # Get the list of items in the specified folder.
-        logging.info("Reading folder \"%s\"" % path)
+    def _readFolder(self, path):
+        logging.debug("Reading folder \"%s\"" % path)
         uri = self._pathToUri(path)
-        items = self._client.GetAllResources(uri=uri, show_root='true')
-        folders = {}
-        files = {}
+        #items = self._client.GetAllResources(uri=uri, show_root='true')
+        items = self._client.GetAllResources(uri=uri)
+        folders = []
+        files = []
         for entry in items:
             if entry.get_resource_type() == 'folder':
-                folders[entry.title.text] = entry
+                folders.append(os.path.join(path, entry.title.text))
             else:
-                files[entry.title.text] = entry
+                files.append(os.path.join(path, entry.title.text))
+            self._pathmap[os.path.join(path, entry.title.text)] = { "resource_id": entry.resource_id.text, "uri": entry.GetSelfLink().href }
+            self._hashmap[entry.resource_id.text] = os.path.join(path, entry.title.text)
         return folders, files
+        
+    def readFolder(self, path):
+        "Get the list of items in the specified folder."
+        
+        return self._readFolder(path)
     
     def readRoot(self):
-        # Get the list of items in the root folder.
-        folders, files = self.readFolder('/')
-        return folders, files
+        "Get the list of items in the root folder."
+        
+        return self._readFolder('/')
     
+    def walk(self):
+        "Walk the server-side tree, populating the local maps."
+        
+        folders, files = self._readFolder('/')
+        pprint.pprint(folders)
+        pprint.pprint(self._pathmap)
+        
+        for folder in folders:
+            self._readFolder(folder)
+
+        pprint.pprint(self._pathmap)
+            
+
 
 def _parseArgs():
     helpStr = """
@@ -213,8 +254,9 @@ def main():
     # >>> doc = gdata.docs.data.Resource(type='document', title='I did this')
     # >>> doc = client.CreateResource(doc, collection=folder)
 
-    rootfolders, rootfiles = docs.readRoot()
-
+    docs.walk()
+    
+    #rootfolders, rootfiles = docs.readRoot()
     #for folder in rootfolders:
     #    folders, files = docs.readFolder("/" + folder)
 

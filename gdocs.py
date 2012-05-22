@@ -37,6 +37,7 @@ class DocsSession(object):
     
     def __init__(self):
         "Class constructor."
+
         self._token = None
         self._client = None
         
@@ -121,6 +122,20 @@ class DocsSession(object):
         logging.info("Authorising the Docs client API...")
         self._client = self._token.authorize(self._client)
     
+    def getMetadata(self):
+        metadata = self._client.GetMetadata()
+        metadict = { 'quota': { 'total':   metadata.quota_bytes_total.text,
+                                'used':    metadata.quota_bytes_used.text,
+                                'trashed': metadata.quota_bytes_used_in_trash.text },
+                     'import': [ "%s to %s" % (input_format.source, input_format.target) for input_format in metadata.import_formats ],
+                     'export': [ "%s to %s" % (export_format.source, export_format.target) for export_format in metadata.export_formats ],
+                     'features': [ feature.name.text for feature in metadata.features ] 
+        } 
+        metadict["upload_sizes"] = {}
+        for upload_size in metadata.max_upload_sizes:
+            metadict["upload_sizes"][upload_size.kind] = upload_size.text
+        return metadict
+
     def _resourceToUri(self, resource):
         return resource.content.src
     
@@ -128,7 +143,8 @@ class DocsSession(object):
         if path == '/':
             uri = _Config.ROOT_FEED_URI
         else:
-            # TODO
+            #pathlist = path.split('/')
+            #for pathelem in pathlist:
             pass
         logging.debug("path \"%s\" -> URI \"%s\"" % (path, uri))
         return uri
@@ -183,6 +199,9 @@ def main():
     if docs == None:
         sys.exit(1)
 
+    if opts.verbose:
+        print docs.getMetadata()
+    
     # Now, we can do client operations.
     
     # Examples:
@@ -194,10 +213,10 @@ def main():
     # >>> doc = gdata.docs.data.Resource(type='document', title='I did this')
     # >>> doc = client.CreateResource(doc, collection=folder)
 
-    folders, files = docs.readRoot()
+    rootfolders, rootfiles = docs.readRoot()
 
-    for folder in folders:
-        print folder
+    #for folder in rootfolders:
+    #    folders, files = docs.readFolder("/" + folder)
 
 if __name__ == "__main__":
     main()

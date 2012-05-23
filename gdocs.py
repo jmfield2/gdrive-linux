@@ -54,8 +54,13 @@ class _Config(object):
 
 class DocsSession(object):
     
-    def __init__(self):
+    def __init__(self, verbose=False, debug=False):
         "Class constructor."
+
+        if debug:
+            logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
+        elif verbose:
+            logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
         self._token = None          ## OAuth 2,0 token object.
         self._client = None         ## Google Docs API client object.

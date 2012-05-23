@@ -20,7 +20,6 @@ import logging
 import optparse
 import re
 import pprint
-import urlparse
 
 import gdata.gauth
 import gdata.docs.client
@@ -186,7 +185,7 @@ class DocsSession(object):
                 files.append(os.path.join(path, entry.title.text))
             # Chomp the URI, get rid of the scheme and hostname, leave only the path.
             self._pathmap[os.path.join(path, entry.title.text)] = { "resource_id": entry.resource_id.text, 
-                                                                    "uri": urlparse.urlsplit(entry.GetSelfLink().href).path }
+                                                                    "uri": entry.content.src }
             self._hashmap[entry.resource_id.text] = os.path.join(path, entry.title.text)
         return folders, files
         

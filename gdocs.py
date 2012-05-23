@@ -67,7 +67,10 @@ class DocsSession(object):
         if self._client == None:
             # TODO: throw exception.
             sys.exit("Error: failed to create Docs client!")
-    
+
+        # Initialise metadata.
+        self._walk()
+        
     def _authorise(self):
         "Perform OAuth 2.0 authorisation."
         
@@ -199,18 +202,13 @@ class DocsSession(object):
         
         return self._readFolder('/')
     
-    def walk(self):
+    def _walk(self, root='/'):
         "Walk the server-side tree, populating the local maps."
         
-        folders, files = self._readFolder('/')
-        pprint.pprint(folders)
-        pprint.pprint(self._pathmap)
+        folders, files = self._readFolder(root)
         
         for folder in folders:
-            self._readFolder(folder)
-
-        pprint.pprint(self._pathmap)
-            
+            self._walk(root=folder)
 
 
 def _parseArgs():
@@ -257,8 +255,6 @@ def main():
     # >>> doc = gdata.docs.data.Resource(type='document', title='I did this')
     # >>> doc = client.CreateResource(doc, collection=folder)
 
-    docs.walk()
-    
     #rootfolders, rootfiles = docs.readRoot()
     #for folder in rootfolders:
     #    folders, files = docs.readFolder("/" + folder)

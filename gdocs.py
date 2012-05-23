@@ -18,8 +18,8 @@ import os
 import sys
 import logging
 import optparse
-import re
 import pprint
+import json
 
 import gdata.gauth
 import gdata.docs.client
@@ -44,6 +44,9 @@ class _Config(object):
     CONFIG_DIR = '.config/%s' % CLIENT_ID
     # Token blob file name.
     TOKEN_FILE = 'token.txt' 
+    # Metadata file name.
+    METADATA_FILE = 'metadata.json'
+     
     # URI to get the root feed. Can also be used to check if a resource is in the 
     # root collection, i.e. its parent is this.
     ROOT_FEED_URI = "/feeds/default/private/full/folder%3Aroot/contents"
@@ -54,10 +57,11 @@ class DocsSession(object):
     def __init__(self):
         "Class constructor."
 
-        self._token = None      ## OAuth 2,0 token object.
-        self._client = None     ## Google Docs API client object.
-        self._pathmap = {}      ## Maps paths to resource IDs.
-        self._hashmap = {}      ## Maps resource IDs to paths.
+        self._token = None          ## OAuth 2,0 token object.
+        self._client = None         ## Google Docs API client object.
+        self._map = {}              ## Metadata dict.
+        self._map["bypath"] = {}    ## Maps paths to resource IDs.
+        self._map["byhash"] = {}    ## Maps resource IDs to paths.
         
         self._authorise()
         if self._token == None:
@@ -68,15 +72,19 @@ class DocsSession(object):
             # TODO: throw exception.
             sys.exit("Error: failed to create Docs client!")
 
-        # Initialise metadata.
-        self._walk()
+        # Load cached metadata, if any.
+        loaded = self._load()
         
-    def _authorise(self):
-        "Perform OAuth 2.0 authorisation."
+        if not loaded:
+            # Initialise metadata.
+            self._walk()
         
-        saved_auth = False
+        # Save metadata to cache.
+        self._save()
+
+    def _getConfigDir(self):
+        "Find (create if necessary) the configuration directory."
         
-        # Try to read saved auth blob.
         home = os.getenv("XDG_CONFIG_HOME") 
         if home == None:
             home = os.getenv("HOME")
@@ -88,11 +96,26 @@ class DocsSession(object):
                 sys.exit("Error: \"%s\" exists but is not a directory!" % cfgdir)
         else:
             os.makedirs(cfgdir, 0775)
-        tokenfile = os.path.join(cfgdir, _Config.TOKEN_FILE)
+        return cfgdir
+
+    def _getConfigFile(self, name):
+        "Get the path to a file in the config directory."
+        
+        path = os.path.join(self._getConfigDir(), name)
+        if os.path.exists(path):
+            if not os.path.isfile(path):
+                sys.exit("Error: path \"%s\" exists but is not a file!" % path)
+        return path
+
+    def _authorise(self):
+        "Perform OAuth 2.0 authorisation."
+        
+        saved_auth = False
+        
+        # Try to read saved auth blob.
+        tokenfile = self._getConfigFile(_Config.TOKEN_FILE)
         if os.path.exists(tokenfile):
-            if not os.path.isfile(tokenfile):
-                sys.exit("Error: path \"%s\" exists but is not a file!" % tokenfile)
-            logging.info("Reading token...")
+            logging.debug("Reading token...")
             f = open(tokenfile, 'r')
             blob = f.read()
             f.close()
@@ -126,7 +149,7 @@ class DocsSession(object):
             
         # Save the refresh token.
         if self._token.refresh_token and not saved_auth:
-            logging.info("Saving token...")
+            logging.debug("Saving token...")
             f = open(tokenfile, 'w')
             blob = gdata.gauth.token_to_blob(self._token)
             f.write(blob)
@@ -143,7 +166,7 @@ class DocsSession(object):
         logging.info("Authorising the Docs client API...")
         self._client = self._token.authorize(self._client)
     
-    def getMetadata(self):
+    def getUserData(self):
         metadata = self._client.GetMetadata()
         metadict = { 'quota': { 'total':   metadata.quota_bytes_total.text,
                                 'used':    metadata.quota_bytes_used.text,
@@ -164,32 +187,33 @@ class DocsSession(object):
         if path == '/':
             uri = _Config.ROOT_FEED_URI
         else:
-            if path in self._pathmap:
-                uri = self._pathmap[path]["uri"]
+            if path in self._map["bypath"]:
+                uri = self._map["bypath"][path]["uri"]
             else:
                 # TODO: try to handle this better.
                 logging.error("Path \"%s\" is unknown!" % path)
                 raise KeyError
-        logging.debug("path \"%s\" -> URI \"%s\"" % (path, uri))
+        #logging.debug("path \"%s\" -> URI \"%s\"" % (path, uri))
         return uri
     
     def _readFolder(self, path):
         logging.debug("Reading folder \"%s\"" % path)
         uri = self._pathToUri(path)
-        #items = self._client.GetAllResources(uri=uri, show_root='true')
-        logging.debug("Getting resources from %s" % uri)
+        #logging.debug("Getting resources from %s" % uri)
         items = self._client.GetAllResources(uri=uri)
         folders = []
         files = []
         for entry in items:
+            itempath = os.path.join(path, entry.title.text)
+            itemid = entry.resource_id.text
             if entry.get_resource_type() == 'folder':
-                folders.append(os.path.join(path, entry.title.text))
+                folders.append(itempath)
             else:
-                files.append(os.path.join(path, entry.title.text))
-            # Chomp the URI, get rid of the scheme and hostname, leave only the path.
-            self._pathmap[os.path.join(path, entry.title.text)] = { "resource_id": entry.resource_id.text, 
-                                                                    "uri": entry.content.src }
-            self._hashmap[entry.resource_id.text] = os.path.join(path, entry.title.text)
+                files.append(itempath)
+            self._map["bypath"][itempath] = { "resource_id": itemid, "uri": entry.content.src }
+            self._map["byhash"][itemid] = itempath
+        folders.sort()
+        files.sort()
         return folders, files
         
     def readFolder(self, path):
@@ -210,6 +234,30 @@ class DocsSession(object):
         for folder in folders:
             self._walk(root=folder)
 
+    def _load(self):
+        "Load metadata from local file, if it exists."
+        
+        # Try to read saved metadata.
+        metafile = self._getConfigFile(_Config.METADATA_FILE)
+        if os.path.exists(metafile):
+            logging.debug("Reading cached metadata...")
+            f = open(metafile, 'r')
+            # Load JSON to maps.
+            self._map = json.load(f)
+            f.close()
+            return True
+        return False
+    
+    def _save(self):
+        "Save metadata to local file."
+        
+        # Save metadata.
+        metafile = self._getConfigFile(_Config.METADATA_FILE)
+        logging.debug("Saving metadata...")
+        f = open(metafile, 'w')
+        json.dump(self._map, f)
+        f.close()
+    
 
 def _parseArgs():
     helpStr = """
@@ -242,7 +290,7 @@ def main():
         sys.exit(1)
 
     if opts.verbose:
-        print docs.getMetadata()
+        print docs.getUserData()
     
     # Now, we can do client operations.
     

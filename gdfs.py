@@ -92,6 +92,8 @@ class GDriveFs(Fuse):
         self._session = gdocs.DocsSession(verbose=True, debug=True)
 
     def getattr(self, path):
+        "Get path attributes."
+        print "getattr(%s)" % (path)
         st = MyStat()
         if path == '/':
             st.st_mode = stat.S_IFDIR | 0755
@@ -104,18 +106,23 @@ class GDriveFs(Fuse):
 
     def readdir(self, path, offset):
         "Generator for the contents of a directory."
+        print "readdir(%s,%s)" % (path, offset)
         folders, files = self._session.readFolder(path)
         for r in  '.', '..', folders, files:
             print "Yielding", r
             yield fuse.Direntry(r)
 
-    #def open(self, path, flags):
-    #    accmode = os.O_RDONLY | os.O_WRONLY | os.O_RDWR
-    #    if (flags & accmode) != os.O_RDONLY:
-    #        return -errno.EACCES
+    def open(self, path, flags):
+        "Open file."
+        print "open(%s,%s)" % (path, flags)
+        accmode = os.O_RDONLY | os.O_WRONLY | os.O_RDWR
+        if (flags & accmode) != os.O_RDONLY:
+            return -errno.EACCES
 
-    #def read(self, path, size, offset):
-    #    return -errno.ENOENT
+    def read(self, path, size, offset):
+        "Read file."
+        print "read(%s,%s,%s)" % (path, size, offset)
+        return -errno.ENOENT
 
 def main():
     usage="""

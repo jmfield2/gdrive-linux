@@ -72,12 +72,10 @@ class MyStat(fuse.Stat):
         self.st_ino = 0
         self.st_dev = 0
         self.st_nlink = 0
-        self.st_uid = 0
-        self.st_gid = 0
+        self.st_uid = os.getuid()
+        self.st_gid = os.getgid()
         self.st_size = 0
-        self.st_atime = 0
-        self.st_mtime = 0
-        self.st_ctime = 0
+        self.st_atime = self.st_mtime = self.st_ctime = time.time()
 
 
 class GDriveFs(Fuse):
@@ -95,13 +93,19 @@ class GDriveFs(Fuse):
         "Get path attributes."
         print "getattr(%s)" % (path)
         st = MyStat()
+        st.st_uid = self._uid
+        st.st_gid = self._gid
         if path == '/':
             st.st_mode = stat.S_IFDIR | 0755
             st.st_nlink = 2
         else:
-            st.st_mode = stat.S_IFREG | 0444
-            st.st_nlink = 1
-            st.st_size = 0  ## TODO!
+            if self._session.isFolder(path):
+                st.st_mode = stat.S_IFDIR | 0755
+                st.st_nlink = 2
+            else:
+                st.st_mode = stat.S_IFREG | 0444
+                st.st_nlink = 1
+                st.st_size = 0  ## TODO!
         return st
 
     def readdir(self, path, offset):
@@ -115,7 +119,7 @@ class GDriveFs(Fuse):
             print "Yielding", r
             yield fuse.Direntry(r)
 
-    def open(self, path, flags):
+    def open(self, path, flags):    
         "Open file."
         print "open(%s,%s)" % (path, flags)
         accmode = os.O_RDONLY | os.O_WRONLY | os.O_RDWR

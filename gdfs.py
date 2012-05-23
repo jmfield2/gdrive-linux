@@ -15,26 +15,36 @@
 # limitations under the License.
 
 import fuse
-import gdocs
 import stat
 import errno
 import os
 import time
 
+import gdocs
+
+
 fuse.fuse_python_api = (0, 2)
 
+
 class Resource(object):
-    """ gdrive object (file/dir). """
+    """GDrive object (file/dir)."""
 
     def __init__(self, mode):
         self.mode = mode
 
 
 class Drive(object):
+    "Class representing users GDrive."
+
+    def __init__(self):
+        "Class constructor."
+        
+        self._session = gdocs.DocsSession()
+        self._root = {'/': self._readDir('/')}
 
     def _readDir(self, dirname):
-        """ Recursively read contents of dirname, return dict mapping
-            object names to Resources. """
+        """Recursively read contents of dirname, return dict mapping
+           object names to Resources."""
 
         dirs, files = self._session.readFolder(dirname)
 
@@ -46,11 +56,6 @@ class Drive(object):
             items.update(self._readDir(d))
 
         return items
-
-    def __init__(self):
-
-        self._session = gdocs.DocsSession()
-        self._root = {'/': self._readDir('/')}
 
     def resource(self, path):
         """ Return resource at path, None if it doesn't exist. """
@@ -64,16 +69,19 @@ class Drive(object):
 
         return res
 
+
 class GDFS(fuse.Fuse):
+    "Google Drive FUSE filesystem class."
 
     def __init__(self, *args, **kwargs):
-
+        "Class constructor."
+        
         fuse.Fuse.__init__(self, *args, **kwargs)
-
         self._drive = Drive()
 
     def getattr(self, path):
-
+        "Get FS attributes of the specified path."
+        
         res = self._drive.resource(path)
         if res == None:
             return -errno.ENOENT
@@ -87,13 +95,13 @@ class GDFS(fuse.Fuse):
         st.st_mtime = time.time()
         st.st_ctime = time.time()
         st.st_size = 0
-
         return st
 
     def readdir(self, path, offset):
+        "Generator for the contents of a directory."
+        
         yield fuse.DirEntry('.')
         yield fuse.DirEntry('..')
-
         res = self._drive.resource(path)
         for dir_entry in res:
             yield fuse.DirEntry(dir_entry)
@@ -102,5 +110,3 @@ if __name__ == '__main__':
     fs = GDFS()
     fs.parse()
     fs.main()
-
-

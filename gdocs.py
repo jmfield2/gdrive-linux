@@ -66,7 +66,7 @@ class DocsSession(object):
         self._client = None         ## Google Docs API client object.
         self._map = {}              ## Metadata dict.
         self._map["bypath"] = {}    ## Maps paths to resource IDs.
-        self._map["byhash"] = {}    ## Maps resource IDs to paths.
+        self._map["byhash"] = {}    ## Maps resource IDs to paths. 
         
         self._authorise()
         if self._token == None:
@@ -213,14 +213,15 @@ class DocsSession(object):
             itemid = entry.resource_id.text
             if entry.get_resource_type() == 'folder':
                 folders.append(itempath)
+                self._map["bypath"][itempath] = { "resource_id": itemid, "uri": entry.content.src, "type": "folder" }
             else:
                 files.append(itempath)
-            self._map["bypath"][itempath] = { "resource_id": itemid, "uri": entry.content.src }
+                self._map["bypath"][itempath] = { "resource_id": itemid, "uri": entry.content.src, "type": "file" }
             self._map["byhash"][itemid] = itempath
         folders.sort()
         files.sort()
         return folders, files
-        
+
     def readFolder(self, path):
         "Get the list of items in the specified folder."
         
@@ -262,6 +263,19 @@ class DocsSession(object):
         f = open(metafile, 'w')
         json.dump(self._map, f)
         f.close()
+    
+    def isFolder(self, path):
+        if path in self._map["bypath"]:
+            if self._map["bypath"][path]["type"] == "folder":
+                return True
+            else:
+                return False
+        else:
+            # TODO: Handle this better. Raise an exception?
+            sys.exit("Error: path \"%s\" is unknown!" % path)
+    
+    def isFile(self, path):
+        return not self.isFolder(path)
     
 
 def _parseArgs():

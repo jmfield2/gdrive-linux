@@ -14,17 +14,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import fuse
 import stat
 import errno
 import os
 import time
 
+import fuse
+from fuse import Fuse
+
 import gdocs
 
-
 fuse.fuse_python_api = (0, 2)
-
 
 class Resource(object):
     """GDrive object (file/dir)."""
@@ -38,14 +38,12 @@ class Drive(object):
 
     def __init__(self):
         "Class constructor."
-        
         self._session = gdocs.DocsSession()
         self._root = {'/': self._readDir('/')}
 
     def _readDir(self, dirname):
         """Recursively read contents of dirname, return dict mapping
            object names to Resources."""
-
         dirs, files = self._session.readFolder(dirname)
 
         items = {}
@@ -59,54 +57,78 @@ class Drive(object):
 
     def resource(self, path):
         """ Return resource at path, None if it doesn't exist. """
-
         # eh, this is wrong... but it works if you only have the root dir
         res = None
         try:
             res = self._root[path]
         except KeyError:
             pass
-
         return res
 
 
-class GDFS(fuse.Fuse):
+class MyStat(fuse.Stat):
+    def __init__(self):
+        self.st_mode = 0
+        self.st_ino = 0
+        self.st_dev = 0
+        self.st_nlink = 0
+        self.st_uid = 0
+        self.st_gid = 0
+        self.st_size = 0
+        self.st_atime = 0
+        self.st_mtime = 0
+        self.st_ctime = 0
+
+
+class GDriveFs(Fuse):
     "Google Drive FUSE filesystem class."
 
     def __init__(self, *args, **kwargs):
         "Class constructor."
-        
-        fuse.Fuse.__init__(self, *args, **kwargs)
-        self._drive = Drive()
+        Fuse.__init__(self, *args, **kwargs)
+        self._uid = os.getuid()
+        self._gid = os.getgid()
+        #self._drive = Drive()
+        self._session = gdocs.DocsSession(verbose=True, debug=True)
 
     def getattr(self, path):
-        "Get FS attributes of the specified path."
-        
-        res = self._drive.resource(path)
-        if res == None:
-            return -errno.ENOENT
-
-        # Fill in a stat struct
-        st = zstat(fuse.Stat())
-        st.st_mode = res.mode
-        st.st_uid = os.getuid()
-        st.st_gid = os.getgid()
-        st.st_atime = time.time()
-        st.st_mtime = time.time()
-        st.st_ctime = time.time()
-        st.st_size = 0
+        st = MyStat()
+        if path == '/':
+            st.st_mode = stat.S_IFDIR | 0755
+            st.st_nlink = 2
+        else:
+            st.st_mode = stat.S_IFREG | 0444
+            st.st_nlink = 1
+            st.st_size = 0  ## TODO!
         return st
 
     def readdir(self, path, offset):
         "Generator for the contents of a directory."
-        
-        yield fuse.DirEntry('.')
-        yield fuse.DirEntry('..')
-        res = self._drive.resource(path)
-        for dir_entry in res:
-            yield fuse.DirEntry(dir_entry)
+        folders, files = self._session.readFolder(path)
+        for r in  '.', '..', folders, files:
+            print "Yielding", r
+            yield fuse.Direntry(r)
+
+    #def open(self, path, flags):
+    #    accmode = os.O_RDONLY | os.O_WRONLY | os.O_RDWR
+    #    if (flags & accmode) != os.O_RDONLY:
+    #        return -errno.EACCES
+
+    #def read(self, path, size, offset):
+    #    return -errno.ENOENT
+
+def main():
+    usage="""
+GDriveFs - Google Drive Filesystem
+
+""" + fuse.Fuse.fusage
+
+    fs = GDriveFs(version="%prog " + fuse.__version__, usage=usage, dash_s_do='setsingle')
+
+    fs.flags = 0
+    fs.multithreaded = 0
+    fs.parse(errex=1)
+    fs.main()
 
 if __name__ == '__main__':
-    fs = GDFS()
-    fs.parse()
-    fs.main()
+    main()

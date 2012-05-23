@@ -267,8 +267,9 @@ Utility to access Google Drive on Linux.
 
 """
     parser = optparse.OptionParser(description=helpStr)
-    parser.add_option('-v', '--verbose', dest='verbose', action='store_true', default=False, help='Turn on extra logging')
-    parser.add_option('-d', '--debug',   dest='debug',   action='store_true', default=False, help='Turn on debug logging')
+    parser.add_option('-v', '--verbose', dest='verbose', action='store_true', default=False,                   help='Turn on extra logging')
+    parser.add_option('-d', '--debug',   dest='debug',   action='store_true', default=False,                   help='Turn on debug logging')
+    parser.add_option('-l', '--list',    dest='list',    action='store',                       metavar='PATH', help='List the specified path.')
     (options, args) = parser.parse_args()
     return options
 
@@ -294,6 +295,13 @@ def main():
     
     # Now, we can do client operations.
     
+    if opts.list:
+        folders, files = docs.readFolder(opts.list)
+        for folder in folders:
+            print folder
+        for filename in files:
+            print filename
+
     # Examples:
     # 1. Create a folder:
     # >>> folder = gdata.docs.data.Resource(type='folder', title='Folder Name')
@@ -303,9 +311,6 @@ def main():
     # >>> doc = gdata.docs.data.Resource(type='document', title='I did this')
     # >>> doc = client.CreateResource(doc, collection=folder)
 
-    #rootfolders, rootfiles = docs.readRoot()
-    #for folder in rootfolders:
-    #    folders, files = docs.readFolder("/" + folder)
 
 if __name__ == "__main__":
     main()

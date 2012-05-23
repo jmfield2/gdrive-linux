@@ -108,7 +108,10 @@ class GDriveFs(Fuse):
         "Generator for the contents of a directory."
         print "readdir(%s,%s)" % (path, offset)
         folders, files = self._session.readFolder(path)
-        for r in  '.', '..', folders, files:
+        items = [ '.', '..' ]
+        items.extend(folders)
+        items.extend(files)
+        for r in  items:
             print "Yielding", r
             yield fuse.Direntry(r)
 

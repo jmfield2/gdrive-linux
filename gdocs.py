@@ -29,7 +29,7 @@ class _Config(object):
     "Class to hold configuration data."
     
     # OAuth 2.0 configuration.
-    APP_NAME = "GDocs-Sample-v1"
+    APP_NAME = "GDocs-Sync-v1"
     CLIENT_ID = '601991085534.apps.googleusercontent.com'
     CLIENT_SECRET = 'HEGv8uk4mXZ41nLmOlGMbGGu'
     REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
@@ -38,7 +38,7 @@ class _Config(object):
               "https://docs.google.com/feeds/", 
               "https://docs.googleusercontent.com/", 
               "https://spreadsheets.google.com/feeds/"]
-    USER_AGENT = 'gdocs-sample/1.0'
+    USER_AGENT = 'gdocs-sync/1.0'
 
     # Configuration directory.
     CONFIG_DIR = '.config/%s' % CLIENT_ID

@@ -56,7 +56,6 @@ class DocsSession(object):
     
     def __init__(self, verbose=False, debug=False):
         "Class constructor."
-
         if debug:
             logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
         elif verbose:
@@ -89,7 +88,6 @@ class DocsSession(object):
 
     def _getConfigDir(self):
         "Find (create if necessary) the configuration directory."
-        
         home = os.getenv("XDG_CONFIG_HOME") 
         if home == None:
             home = os.getenv("HOME")
@@ -105,7 +103,6 @@ class DocsSession(object):
 
     def _getConfigFile(self, name):
         "Get the path to a file in the config directory."
-        
         path = os.path.join(self._getConfigDir(), name)
         if os.path.exists(path):
             if not os.path.isfile(path):
@@ -114,7 +111,6 @@ class DocsSession(object):
 
     def _authorise(self):
         "Perform OAuth 2.0 authorisation."
-        
         saved_auth = False
         
         # Try to read saved auth blob.
@@ -161,6 +157,7 @@ class DocsSession(object):
             f.close()
     
     def _setup(self):
+        "Setup Google Docs session."
         # Create the Google Documents List API client.
         logging.info("Creating the Docs client...")
         self._client = gdata.docs.client.DocsClient(source=_Config.APP_NAME)
@@ -172,6 +169,7 @@ class DocsSession(object):
         self._client = self._token.authorize(self._client)
     
     def getUserData(self):
+        "Return Google Docs user metadata."
         metadata = self._client.GetMetadata()
         metadict = { 'quota': { 'total':   metadata.quota_bytes_total.text,
                                 'used':    metadata.quota_bytes_used.text,
@@ -186,9 +184,11 @@ class DocsSession(object):
         return metadict
 
     def _resourceToUri(self, resource):
+        "Get the URI for a resource."
         return resource.content.src
     
     def _pathToUri(self, path):
+        "Get the URI for a path."
         if path == '/':
             uri = _Config.ROOT_FEED_URI
         else:
@@ -202,6 +202,7 @@ class DocsSession(object):
         return uri
     
     def _readFolder(self, path):
+        "Read the contents of a folder."
         logging.debug("Reading folder \"%s\"" % path)
         uri = self._pathToUri(path)
         #logging.debug("Getting resources from %s" % uri)
@@ -213,10 +214,16 @@ class DocsSession(object):
             itemid = entry.resource_id.text
             if entry.get_resource_type() == 'folder':
                 folders.append(itempath)
-                self._map["bypath"][itempath] = { "resource_id": itemid, "uri": entry.content.src, "type": "folder" }
+                self._map["bypath"][itempath] = { "resource_id": itemid, 
+                                                  "uri": entry.content.src, 
+                                                  "type": "folder", 
+                                                  "size": entry.quota_bytes_used.text }
             else:
                 files.append(itempath)
-                self._map["bypath"][itempath] = { "resource_id": itemid, "uri": entry.content.src, "type": "file" }
+                self._map["bypath"][itempath] = { "resource_id": itemid, 
+                                                  "uri": entry.content.src, 
+                                                  "type": "file", 
+                                                  "size": entry.quota_bytes_used.text }
             self._map["byhash"][itemid] = itempath
         folders.sort()
         files.sort()
@@ -224,19 +231,15 @@ class DocsSession(object):
 
     def readFolder(self, path):
         "Get the list of items in the specified folder."
-        
         return self._readFolder(path)
     
     def readRoot(self):
         "Get the list of items in the root folder."
-        
         return self._readFolder('/')
     
     def _walk(self, root='/'):
         "Walk the server-side tree, populating the local maps."
-        
         folders, files = self._readFolder(root)
-        
         for folder in folders:
             self._walk(root=folder)
 
@@ -265,6 +268,7 @@ class DocsSession(object):
         f.close()
     
     def isFolder(self, path):
+        "Return true if the specified path is a folder."
         if path in self._map["bypath"]:
             if self._map["bypath"][path]["type"] == "folder":
                 return True
@@ -275,10 +279,19 @@ class DocsSession(object):
             sys.exit("Error: path \"%s\" is unknown!" % path)
     
     def isFile(self, path):
+        "Return true if the specified path is a file."
         return not self.isFolder(path)
     
+    def getFileSize(self, path):
+        "Return the size in bytes of the specified path, if it is a file."
+        size = 0
+        if not self.isFolder(path):
+            if path in self._map["bypath"]:
+                size = self._map["bypath"][path]["size"]
+        return size
 
 def _parseArgs():
+    "Parse command-line arguments."
     helpStr = """
 %prog [options] 
 
@@ -294,7 +307,7 @@ Utility to access Google Drive on Linux.
 
 
 def main():
-    global opts
+    "Main function."
     opts = _parseArgs()
 
     if opts.debug:
@@ -316,10 +329,10 @@ def main():
     
     if opts.list:
         folders, files = docs.readFolder(opts.list)
-        for folder in folders:
-            print folder
-        for filename in files:
-            print filename
+        for path in folders:
+            print path
+        for path in files:
+            print path, docs.getFileSize(path)
 
     # Examples:
     # 1. Create a folder:

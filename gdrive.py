@@ -135,10 +135,10 @@ Update the contents of the specified path, recursively. If no path is specified,
 
 """
     if len(argv) == 0:
-        root = '/'
+        path = '/'
     else:
-        root = argv[0]
-    session.update(root)
+        path = argv[0]
+    session.update(path)
 
 @command
 def sync(argv):
@@ -149,10 +149,31 @@ Synchronise the contents of the specified path, recursively. If no path is speci
 This command will create a local copy of the specified folder tree, or if it exists already, will update it to match the server contents..
 """
     if len(argv) == 0:
-        root = '/'
+        path = '/'
     else:
-        root = argv[0]
-    session.sync(root)
+        path = argv[0]
+    #session.sync(path)
+    sys.exit("Not implemented!")
+
+@command
+def download(argv):
+    """Download a file or folder.
+gdrive download <path>
+
+Download the contents of the specified path, recursively. If no path is specified, then the entire GDrive will be downloaded.
+This command will create a local copy of the specified file or folder tree, or if it exists already, will update it to match the server 
+contents.
+"""
+    if len(argv) == 0:
+        path = '/'
+        localpath = os.path.join(os.getcwd(), 'gdrive')
+    else:
+        path = argv[0]
+        if len(argv) == 1:
+            localpath = os.path.join(os.getcwd(), os.path.basename(path))
+        else:
+            localpath = argv[1]
+    session.download(path, localpath)
 
 def _parseArgs():
     "Parse command-line arguments."

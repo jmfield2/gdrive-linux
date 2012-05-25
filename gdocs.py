@@ -18,6 +18,7 @@ import os
 import sys
 import logging
 import json
+import shutil
 
 import gdata.gauth
 import gdata.docs.client
@@ -205,6 +206,17 @@ class DocsSession(object):
         #logging.debug("path \"%s\" -> URI \"%s\"" % (path, uri))
         return uri
     
+    def _pathToResourceId(self, path):
+        "Get the resource ID for a path."
+        if path in self._map["bypath"]:
+            res_id = self._map["bypath"][path]["resource_id"]
+        else:
+            # TODO: try to handle this better.
+            logging.error("Path \"%s\" is unknown!" % path)
+            raise KeyError
+        #logging.debug("path \"%s\" -> ID \"%s\"" % (path, res_id))
+        return res_id
+    
     def _readFolder(self, path):
         "Read the contents of a folder."
         logging.debug("Reading folder \"%s\"" % path)
@@ -298,7 +310,71 @@ class DocsSession(object):
         self._walk(root=path)
         self._save()
 
-    def sync(self, path='/'):
-        self.update(path)
-        # TODO
+    def _checkLocalFile(self, path):
+        "Check if the specified file already exists, if so prompt for overwrite."
+        # TODO Eventually, allow overwrites to be controlled by a config setting.
+        # For now, play safe.
+        if not os.path.exists(path):
+            return False
+        if not os.path.isfile(path):
+            # TODO: handle this?
+            logging.error("Local path \"%s\" exists, but is not a file!" % path)
+            return True
+        answer = raw_input("Local file \"%s\" already exists, overwrite? (y/N):")
+        if answer.upper() != 'Y':
+            return True
+        logging.debug("Removing \"%s\"..." % path)
+        os.remove(path)
+        return False
+        
+    def _checkLocalFolder(self, path):
+        "Check if the specified folder already exists, if so prompt for overwrite."
+        # TODO Eventually, allow overwrites to be controlled by a config setting.
+        # For now, play safe.
+        if not os.path.exists(path):
+            os.mkdir(path)
+            return False
+        if not os.path.isdir(path):
+            # TODO: handle this?
+            logging.error("Local path \"%s\" exists, but is not a folder!" % path)
+            return True
+        answer = raw_input("Local folder \"%s\" already exists, overwrite? (y/N):")
+        if answer.upper() != 'Y':
+            return True
+        logging.debug("Removing \"%s\"..." % path)
+        shutil.rmtree(path)
+        os.mkdir(path)
+        return False
 
+    def _download(self, path, localpath):
+        "Download a file."
+        res_id = self._pathToResourceId(path)
+        entry = self._client.GetResourceById(res_id)
+        if not entry:
+            logging.error("Failed to download path \"%s\"" % path)
+            return False
+        if entry.get_resource_type() == 'folder':
+            logging.error("Path \"%s\" is a folder!" % path)
+            return False
+        if self._checkLocalFile(localpath):
+            return False
+        logging.debug("Downloading \"%s\" to \"%s\"..." % (path, localpath))
+        self._client.DownloadResource(entry, localpath)
+        return True
+
+    def download(self, path, localpath):
+        "Download a file or a folder tree."
+        if self.isFolder(path):
+            logging.debug("Downloading folder \"%s\" to \"%s\"..." % (path, localpath))
+            if self._checkLocalFolder(localpath):
+                logging.error("Cannot overwrite local path \"%s\", exiting!" % localpath)
+                return 
+            (folders, files) = self._readFolder(path)
+            for fname in files:
+                lpath = os.path.join(localpath, os.path.basename(fname))
+                self._download(fname, lpath)
+            for folder in folders:
+                lpath = os.path.join(localpath, os.path.basename(folder))
+                self.download(folder, lpath)
+        else:
+            self._download(path, localpath)

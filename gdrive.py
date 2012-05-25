@@ -114,9 +114,10 @@ gdrive list <path>
 Lists the contents of the specified path. If no path is specified, then the root folder is assumed.
 
 """
-    root = argv
-    if argv == None:
+    if len(argv) == 0:
         root = '/'
+    else:
+        root = argv[0]
     folders, files = session.readFolder(root)
     for path in folders:
         print path
@@ -132,9 +133,10 @@ gdrive update <path>
 Update the contents of the specified path, recursively. If no path is specified, then the entire GDrive will be updated.
 
 """
-    root = argv
-    if argv == None:
+    if len(argv) == 0:
         root = '/'
+    else:
+        root = argv[0]
     session.update(root)
 
 def _parseArgs():
@@ -149,18 +151,13 @@ Utility to access Google Drive.
     parser.add_option('-v', '--verbose', dest='verbose', action='store_true', default=False,                   help='Turn on extra logging')
     parser.add_option('-d', '--debug',   dest='debug',   action='store_true', default=False,                   help='Turn on debug logging')
     (options, args) = parser.parse_args()
-    return (options, args)
+    return options
 
 
 def main(argv):
     "Main function."
 
-    session = gdocs.DocsSession()
-    if session == None:
-        sys.exit("Error, could not create Google Docs session!")
-
-    (opts, args) = _parseArgs()
-
+    opts = _parseArgs()
     if opts.debug:
         logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
     elif opts.verbose:
@@ -168,10 +165,15 @@ def main(argv):
     else:
         logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.WARNING)
 
+    global session
+    session = gdocs.DocsSession()
+    if session == None:
+        sys.exit("Error, could not create Google Docs session!")
+
     cmdfound = False
     i = 0
     for i in range(len(argv)):
-        if argv[i] in commands:
+        if argv[i] in commands or argv[i] in aliases:
             cmdfound = True
             break
 
@@ -182,6 +184,8 @@ def main(argv):
     res = None
     if argv[i] in commands:
         res = commands[argv[i]](argv[i+1:])
+    elif argv[i] in aliases:
+        res = aliases[argv[i]](argv[i+1:])
 
     return res
 

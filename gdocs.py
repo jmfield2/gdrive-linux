@@ -27,7 +27,7 @@ class _Config(object):
     "Class to hold configuration data."
     
     # OAuth 2.0 configuration.
-    APP_NAME = "GDocs-Sync-v1"
+    APP_NAME = "GDrive-Sync-v1"
     CLIENT_ID = '601991085534.apps.googleusercontent.com'
     CLIENT_SECRET = 'HEGv8uk4mXZ41nLmOlGMbGGu'
     REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
@@ -36,7 +36,7 @@ class _Config(object):
               "https://docs.google.com/feeds/", 
               "https://docs.googleusercontent.com/", 
               "https://spreadsheets.google.com/feeds/"]
-    USER_AGENT = 'gdocs-sync/1.0'
+    USER_AGENT = 'gdrive-sync/1.0'
 
     # Configuration directory.
     CONFIG_DIR = '.config/%s' % CLIENT_ID
@@ -99,13 +99,19 @@ class DocsSession(object):
             os.makedirs(cfgdir, 0775)
         return cfgdir
 
+    def getConfigDir(self):
+        return self._getConfigDir()
+
     def _getConfigFile(self, name):
-        "Get the path to a file in the config directory."
+        "Get the path to a file in the configuration directory."
         path = os.path.join(self._getConfigDir(), name)
         if os.path.exists(path):
             if not os.path.isfile(path):
                 sys.exit("Error: path \"%s\" exists but is not a file!" % path)
         return path
+
+    def getConfigFile(self, name):
+        return self._getConfigFile(name)
 
     def _authorise(self):
         "Perform OAuth 2.0 authorisation."
@@ -291,4 +297,8 @@ class DocsSession(object):
     def update(self, path='/'):
         self._walk(root=path)
         self._save()
+
+    def sync(self, path='/'):
+        self.update(path)
+        # TODO
 

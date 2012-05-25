@@ -21,6 +21,7 @@ import optparse
 
 import gdocs
 
+
 session = None
 commands = {}
 aliases = {}
@@ -138,6 +139,20 @@ Update the contents of the specified path, recursively. If no path is specified,
     else:
         root = argv[0]
     session.update(root)
+
+@command
+def sync(argv):
+    """Synchronise a folder.
+gdrive sync <path>
+
+Synchronise the contents of the specified path, recursively. If no path is specified, then the entire GDrive will be synchronised.
+This command will create a local copy of the specified folder tree, or if it exists already, will update it to match the server contents..
+"""
+    if len(argv) == 0:
+        root = '/'
+    else:
+        root = argv[0]
+    session.sync(root)
 
 def _parseArgs():
     "Parse command-line arguments."

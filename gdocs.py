@@ -290,8 +290,8 @@ class DocsSession(object):
                 size = self._map["bypath"][path]["size"]
         return size
 
-    def update(self):
-        self._walk()
+    def update(self, path='/'):
+        self._walk(root=path)
         self._save()
 
 def _parseArgs():
@@ -306,7 +306,7 @@ Utility to access Google Drive on Linux.
     parser.add_option('-v', '--verbose', dest='verbose', action='store_true', default=False,                   help='Turn on extra logging')
     parser.add_option('-d', '--debug',   dest='debug',   action='store_true', default=False,                   help='Turn on debug logging')
     parser.add_option('-l', '--list',    dest='list',    action='store',                       metavar='PATH', help='List the specified path.')
-    parser.add_option('-u', '--update',  dest='update',  action='store_true', default=False,                   help='Update metadata.')
+    parser.add_option('-u', '--update',  dest='update',  action='store',                       metavar='PATH', help='Update the specified path (recursively).')
     (options, args) = parser.parse_args()
     return options
 
@@ -340,7 +340,7 @@ def main():
             print path, docs.getFileSize(path)
 
     if opts.update:
-        docs.update()
+        docs.update(opts.update)
 
     # Examples:
     # 1. Create a folder:

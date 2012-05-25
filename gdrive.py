@@ -23,11 +23,24 @@ import gdocs
 
 session = None
 commands = {}
+aliases = {}
 
-def command(funcname):
-    global commands
-    commands[funcname.func_name] = funcname
-    return funcname
+def command(func):
+    if not func.__doc__:
+        sys.exit("Error: commands must have formatted docstrings!")
+    commands[func.func_name] = func
+    func_aliases = [alias for alias in aliases.iterkeys() if aliases[alias].func_name == func.func_name]
+    if func_aliases:
+        func.__doc__ += "Aliases: %s" % ",".join(func_aliases)
+    return func
+
+def alias(name):
+    def decorator(func):
+        if name in commands:
+            sys.exit("Error, this alias has the same name as a command!")
+        aliases[name] = func
+        return func
+    return decorator
 
 @command
 def help(argv):
@@ -93,6 +106,7 @@ Prints user information on the currently authenticated Google Drive account..
     print session.getUserData()
     
 @command
+@alias("ls")
 def list(argv):
     """List folder contents.
 gdrive list <path>
@@ -110,6 +124,7 @@ Lists the contents of the specified path. If no path is specified, then the root
         print path, session.getFileSize(path)
 
 @command
+@alias("up")
 def update(argv):
     """Update a folder.
 gdrive update <path>

@@ -17,8 +17,6 @@
 import os
 import sys
 import logging
-import optparse
-import pprint
 import json
 
 import gdata.gauth
@@ -294,63 +292,3 @@ class DocsSession(object):
         self._walk(root=path)
         self._save()
 
-def _parseArgs():
-    "Parse command-line arguments."
-    helpStr = """
-%prog [options] 
-
-Utility to access Google Drive on Linux.
-
-"""
-    parser = optparse.OptionParser(description=helpStr)
-    parser.add_option('-v', '--verbose', dest='verbose', action='store_true', default=False,                   help='Turn on extra logging')
-    parser.add_option('-d', '--debug',   dest='debug',   action='store_true', default=False,                   help='Turn on debug logging')
-    parser.add_option('-l', '--list',    dest='list',    action='store',                       metavar='PATH', help='List the specified path.')
-    parser.add_option('-u', '--update',  dest='update',  action='store',                       metavar='PATH', help='Update the specified path (recursively).')
-    (options, args) = parser.parse_args()
-    return options
-
-
-def main():
-    "Main function."
-    opts = _parseArgs()
-
-    if opts.debug:
-        logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
-    elif opts.verbose:
-        logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
-    else:
-        logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.WARNING)
-
-
-    docs = DocsSession()
-    if docs == None:
-        sys.exit(1)
-
-    if opts.verbose:
-        print docs.getUserData()
-    
-    # Now, we can do client operations.
-    
-    if opts.list:
-        folders, files = docs.readFolder(opts.list)
-        for path in folders:
-            print path
-        for path in files:
-            print path, docs.getFileSize(path)
-
-    if opts.update:
-        docs.update(opts.update)
-
-    # Examples:
-    # 1. Create a folder:
-    # >>> folder = gdata.docs.data.Resource(type='folder', title='Folder Name')
-    # >>> folder = client.CreateResource(folder)
-    #
-    # 2. Create a file:
-    # >>> doc = gdata.docs.data.Resource(type='document', title='I did this')
-    # >>> doc = client.CreateResource(doc, collection=folder)
-
-
-if __name__ == "__main__":
-    main()

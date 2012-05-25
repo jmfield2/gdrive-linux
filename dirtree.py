@@ -18,6 +18,37 @@ import os
 import os.path
 
 
+class Node(object):
+    "A class representing a node in the directory tree."
+
+    def __init__(self):
+        self._dict = {}
+        self._path = None
+        self._data = None
+
+    def get_dict(self):
+        return self.__dict
+
+    def get_path(self):
+        return self.__path
+
+    def get_data(self):
+        return self.__data
+
+    def set_dict(self, value):
+        self.__dict = value
+
+    def set_path(self, value):
+        self.__path = value
+
+    def set_data(self, value):
+        self.__data = value
+
+    path = property(get_path, set_path)
+    data = property(get_data, set_data)
+    dict = property(get_dict, set_dict)
+
+
 class DirectoryTree(object):
     "A prefix tree (Trie) implementation to represent a directory tree, storing an arbitrary object at each node."
 
@@ -26,7 +57,7 @@ class DirectoryTree(object):
         self._objstore = {}
 
     def __contains__(self, path):
-        "True if the Trie contains the specified path."
+        "True if the tree contains the specified path."
         node = self._root
         for pathcomp in os.path.split(path):
             try:
@@ -36,7 +67,7 @@ class DirectoryTree(object):
         return True
 
     def add(self, path, obj):
-        "Add a path to the Trie, storing the object."
+        "Add a path to the tree, storing the object."
         node = self._root
         for pathcomp in os.path.split(path):
             try: 
@@ -47,7 +78,7 @@ class DirectoryTree(object):
                 node = node[pathcomp]
 
     def remove(self, path):
-        "Remove a path from the Trie, removing the associated object."
+        "Remove a path from the tree, removing the associated object."
         node = self._root
         for pathcomp in os.path.split(path):
             try:
@@ -58,7 +89,7 @@ class DirectoryTree(object):
         del self._objstore[path]
 
     def update(self, paths, objs):
-        "Add a list of paths and a list of corresponding objects to the Trie."
+        "Add a list of paths and a list of corresponding objects to the tree."
         if len(paths) != len(objs):
             raise Exception("Paths and objects iterables must be the same length!")
         for i in range(len(paths)):
@@ -75,7 +106,7 @@ class DirectoryTree(object):
         pass
     
     def search(self, prefix):
-        "Returns a list of keys matching the prefix."
+        "Returns a list of keys matching the prefix in the tree."
         node = self._root
         for pathcomp in os.path.split(prefix):
             try:

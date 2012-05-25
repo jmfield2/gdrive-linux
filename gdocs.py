@@ -346,6 +346,15 @@ class DocsSession(object):
         os.mkdir(path)
         return False
 
+    def getNumResources(self, path):
+        "Returns the total number of resources (files, folders) in the specified path, and all subtrees."
+        if path not in self._map["bypath"]:
+            logging.error("Path \"%s\" is unknown!" % path)
+            return 0
+
+        count = 0                 
+        return count
+        
     def _download(self, path, localpath):
         "Download a file."
         res_id = self._pathToResourceId(path)

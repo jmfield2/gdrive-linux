@@ -14,112 +14,210 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import os.path
+# Based in part on pytrie, https://bitbucket.org/gsakkis/pytrie/
+# Copyright (c) 2009, George Sakkis
 
 
-class Node(object):
-    "A class representing a node in the directory tree."
-
-    def __init__(self):
-        self._dict = {}
-        self._path = None
-        self._data = None
-
-    def get_dict(self):
-        return self.__dict
-
-    def get_path(self):
-        return self.__path
-
-    def get_data(self):
-        return self.__data
-
-    def set_dict(self, value):
-        self.__dict = value
-
-    def set_path(self, value):
-        self.__path = value
-
-    def set_data(self, value):
-        self.__data = value
-
-    path = property(get_path, set_path)
-    data = property(get_data, set_data)
-    dict = property(get_dict, set_dict)
+from UserDict import DictMixin
 
 
-class DirectoryTree(object):
-    "A prefix tree (Trie) implementation to represent a directory tree, storing an arbitrary object at each node."
+# Singleton sentinel.
+class _Null(object): 
+    pass
 
-    def __init__(self):
-        self._root = {}
-        self._objstore = {}
+class _Node(dict):
+    """A class representing a node in the directory tree.
 
-    def __contains__(self, path):
-        "True if the tree contains the specified path."
-        node = self._root
-        for pathcomp in os.path.split(path):
-            try:
-                node = node[pathcomp]
-            except KeyError:
-                return False
-        return True
+    >>> n = _Node()
+    >>> n[1] = 1
+    >>> n[1]
+    1
+    >>> n = { 1: 1, 2: 2, 3: 3 }
+    >>> n
+    {1: 1, 2: 2, 3: 3}
+    >>> 1 in n
+    True
+    >>> 4 in n
+    False
+    >>> n[5]
+    Traceback (most recent call last):
+      File "/usr/lib64/python2.7/doctest.py", line 1289, in __run
+        compileflags, 1) in test.globs
+      File "<doctest __main__._Node[7]>", line 1, in <module>
+        n[5]
+    KeyError: 5
+    """
 
-    def add(self, path, obj):
-        "Add a path to the tree, storing the object."
-        node = self._root
-        for pathcomp in os.path.split(path):
-            try: 
-                node = node[pathcomp]
-            except KeyError:
-                node[pathcomp] = {}
-                self._objstore[path] = obj
-                node = node[pathcomp]
+    def __init__(self, value=_Null):
+        super(_Node, self).__init__()    # The base dictionary object.
+        self.path = None                # Stores the path to this node.
+        self.value = value
+        self.children = {}
 
-    def remove(self, path):
-        "Remove a path from the tree, removing the associated object."
-        node = self._root
-        for pathcomp in os.path.split(path):
-            try:
-                node = node[pathcomp]
-            except KeyError:
-                return
-        del node[pathcomp]
-        del self._objstore[path]
+    def numkeys(self):
+        '''Return the number of keys in the subtree rooted at this node.'''
+        numk = 0
+        if self.value is not _Null:
+            numk = sum(child.numkeys() for child in self.children.itervalues())
+        return numk
 
-    def update(self, paths, objs):
-        "Add a list of paths and a list of corresponding objects to the tree."
-        if len(paths) != len(objs):
-            raise Exception("Paths and objects iterables must be the same length!")
-        for i in range(len(paths)):
-            self.add(paths[i], objs[i])
+    def __repr__(self):
+        valstr = '_Null'
+        if self.value is not _Null:
+            valstr = repr(self.value)
+        return '(%s, {%s})' % (valstr, ', '.join('%r: %r' % cstr for cstr in self.children.iteritems()))
 
-    def _walk(self, node):
-        "Walk a subtree."
-        for pathcomp in node:
-            yield self._walk(node[pathcomp])
+    def __getstate__(self):
+        return (self.value, self.children)
 
-    def _path(self, node):
-        "Get the path from the root to the supplied node."
-        # TODO: hmmm, no clue yet how to do this.
-        pass
+    def __setstate__(self, state):
+        self.value, self.children = state
+
+
+class DirectoryTree(DictMixin, object):
+    """A prefix tree (Trie) implementation to represent a directory tree.
+
+    >>> t = DirectoryTree()
+    >>> t.add("/a/b/c/d")
+    >>> t.add("/a/b/c/d/e")
+    >>> t.add("/foo/bar")
+    >>> print t
+    DirectoryTree({'/': '/', '/a': '/a', '/a/b': /a/b', '/a/b/c': /a/b/c', /a/b/c/d': '/a/b/c/d', '/a/b/c/d/e': '/a/b/c/d/e', '/foo/bar': '/foo/bar'})
+    >>> t.keys()
+    ['/', '/a', '/a/b', '/a/b/c', /a/b/c/d', '/a/b/c/d/e', '/foo', /foo/bar']
+    >>> t.values()
+    ['/', '/a', '/a/b', '/a/b/c', /a/b/c/d', '/a/b/c/d/e', '/foo', /foo/bar']
+    >>> t.items()
+    [('/', '/'), ('/a', '/a'), ('/a/b', '/a/b'), ('/a/b/c', '/a/b/c'), ('/a/b/c/d', '/a/b/c/d'), ('/a/b/c/d/e', '/a/b/c/d/e'), ('/foo/bar', '/foo/bar')]
+    >>> t.search("/a/b/c")
+    ['/a/b/c', '/a/b/c/d', '/a/b/c/d/e']
+    """
+
+    def __init__(self, seq=None, **kwargs):
+        self._root = _Node('/')
+        self.update(seq, **kwargs)
     
-    def search(self, prefix):
-        "Returns a list of keys matching the prefix in the tree."
-        node = self._root
-        for pathcomp in os.path.split(prefix):
-            try:
-                node = node[pathcomp]
-            except KeyError: 
-                return []
-        slist = []
-        for node in self._walk(node):
-            slist.append(self._path(node))
-        return slist
+    def __len__(self):
+        return self._root.numkeys()
 
-    def get(self, path):
-        if self.__contains__(path):
-            return self._objstore[path]
+    def __iter__(self):
+        return self.iterkeys()
+
+    def __contains__(self, key):
+        node = self._find(key)
+        return node is not None and node.value is not _Null
+
+    def __getitem__(self, key):
+        node = self._find(key)
+        if node is None or node.value is _Null:
+            raise KeyError
+        return node.value
+
+    def __setitem__(self, key, value):
+        node = self._root
+        for part in key.split('/'):
+            print '*** part:', part
+            parent = node
+            print '*** node:', node
+            if part == '':
+                part = '/'
+            next_node = node.children.get(part)
+            if next_node is None:
+                # Create the intermediate nodes.
+                node = node.children.setdefault(part, _Node())
+                if part == '/':
+                    node.value = '/'
+                else:
+                    if parent.value is _Null:
+                        node.value = '/' + part
+                    else:
+                        node.value = '/'.join(parent.value.split('/') + [part])
+            else:
+                node = next_node
+        node.value = value
+
+    def __delitem__(self, key):
+        parts = []
+        node = self._root
+        for part in key.split('/'):
+            parts.append(node, part)
+            node = node.children.get(part)
+            if node is None:
+                break
+        if node is None or node.value is _Null:
+            raise KeyError
+        node.value = _Null
+        while node.value is _Null and not node.children and parts:
+            node, part = parts.pop()
+            del node.children[part]
+
+    def __repr__(self):
+        return '%s({%s})' % (self.__class__.__name__, ', '.join('%r: %r' % t for t in self.iteritems()))
+
+    def _find(self, key):
+        node = self._root
+        for part in key.split('/'):
+            node = node.children.get(part)
+            if node is None:
+                break
+        return node
+
+    def keys(self, prefix=None):
+        "Return a list of the trie keys."
+        return list(self.iterkeys(prefix))
+
+    def values(self, prefix=None):
+        "Return a list of the trie values."
+        return list(self.itervalues(prefix))
+
+    def items(self, prefix=None):
+        "Return a list of the trie (key, value) tuples."
+        return list(self.iteritems(prefix))
+
+    def iteritems(self, prefix=None):
+        "Return an iterator over the trie (key, value) tuples."
+        
+        parts = []
+        
+        def generator(node, parts=parts):
+            if node.value is not _Null:
+                yield ('/'.join(parts), node.value)
+            for part, child in node.children.iteritems():
+                parts.append(part)
+                for subresult in generator(child):
+                    yield subresult
+                del parts[-1]
+        
+        node = self._root
+        if prefix is not None:
+            for part in prefix.split('/'):
+                parts.append(part)
+                node = node.children.get(part)
+                if node is None:
+                    node = _Node()
+                    break
+        
+        return generator(node)
+
+    def iterkeys(self, prefix=None):
+        "Return an iterator over the trie keys."
+        return (key for key, value in self.iteritems(prefix))
+
+    def itervalues(self, prefix=None):
+        "Return an iterator over the trie values."
+        return (value for key, value in self.iteritems(prefix))
+
+    def add(self, path, value=None):
+        "Add a path to the trie."
+        if value is not None:
+            self[path] = value
         else:
-            return None
+            self[path] = path
+
+    def search(self, prefix=None):
+        "Return a list of keys in the trie matching the supplied prefix."
+        return list(self.iterkeys(prefix))
+        
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()

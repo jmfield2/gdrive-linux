@@ -116,11 +116,9 @@ class DirectoryTree(DictMixin, object):
     def __setitem__(self, key, value):
         node = self._root
         for part in key.split('/'):
-            print '*** part:', part
+            #print '*** part:', part
             parent = node
-            print '*** node:', node
-            if part == '':
-                part = '/'
+            #print '*** node:', node
             next_node = node.children.get(part)
             if next_node is None:
                 # Create the intermediate nodes.
@@ -181,6 +179,7 @@ class DirectoryTree(DictMixin, object):
         
         def generator(node, parts=parts):
             if node.value is not _Null:
+                #print "*** parts:", parts
                 yield ('/'.join(parts), node.value)
             for part, child in node.children.iteritems():
                 parts.append(part)

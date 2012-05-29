@@ -203,8 +203,6 @@ def main(argv):
     "Main function."
 
     (opts, args) = _parseArgs()
-    print opts
-    print args
     if opts.debug:
         logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
     elif opts.verbose:

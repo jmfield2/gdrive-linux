@@ -19,6 +19,8 @@ import sys
 import logging
 import shutil
 import pickle
+import ConfigParser
+import csv
 
 import gdata.gauth
 import gdata.docs.client
@@ -48,11 +50,22 @@ class _Config(object):
     TOKEN_FILE = 'token.txt' 
     # Metadata file name.
     METADATA_FILE = 'metadata.dat'
-     
+    # Configuration file name.
+    CONFIG_FILE = 'gdrive.cfg'
+
     # URI to get the root feed. Can also be used to check if a resource is in the 
     # root collection, i.e. its parent is this.
     ROOT_FEED_URI = "/feeds/default/private/full/folder%3Aroot/contents"
 
+    # Default configuration values, for user-configurable options. 
+    CONFIG_DEFAULTS = { 
+        "localstore": { 
+            "path": ""      # The path to the root of the local copy of the folder tree.
+        }, 
+        "general": { 
+            "excludes": ""  # A comma-delimited list of strings specifying paths to be ignored.
+        }
+    }
 
 class DocsSession(object):
     
@@ -65,6 +78,9 @@ class DocsSession(object):
         elif verbose:
             logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
+        self._config = {}           ## Configuration dict.
+        self._loadConfig()
+        
         self._token = None          ## OAuth 2,0 token object.
         self._client = None         ## Google Docs API client object.
         self._map = {}              ## Metadata dict.
@@ -109,9 +125,6 @@ class DocsSession(object):
             os.makedirs(cfgdir, 0775)
         return cfgdir
 
-    def getConfigDir(self):
-        return self._getConfigDir()
-
     def _getConfigFile(self, name):
         "Get the path to a file in the configuration directory."
         path = os.path.join(self._getConfigDir(), name)
@@ -120,8 +133,62 @@ class DocsSession(object):
                 sys.exit("Error: path \"%s\" exists but is not a file!" % path)
         return path
 
-    def getConfigFile(self, name):
-        return self._getConfigFile(name)
+    def _defaultConfig(self):
+        logging.debug("Using default configuration...")
+        self._config = _Config.CONFIG_DEFAULTS.copy()
+        
+    def _loadConfig(self):
+        """Load a dictionary of configuration data, from the configuration, 
+           file if it exists, or initialise with default values otherwise."""
+        self._config = {}
+        config = ConfigParser.RawConfigParser()
+        cfgfile = self._getConfigFile(_Config.CONFIG_FILE)
+        if os.path.exists(cfgfile):
+            logging.debug("Reading configuration...")
+            config.read(cfgfile)
+            sections = config.sections()
+            sections.sort()
+            for section in sections:
+                self._config[section] = {}
+                options = config.options(section)
+                for option in options:
+                    if option == "excludes":
+                        exclist = []
+                        # Need to handle the comma-delimited quoted strings.
+                        parser = csv.reader(config.get(section, option), skipinitialspace=True)
+                        for fields in parser:
+                            for index, field in enumerate(fields):
+                                exclist.append(field)
+                        self._config[section][option] = exclist
+                    else:
+                        self._config[section][option] = config.get(section, option)
+        else:
+            self._defaultConfig()
+            self._saveConfig()
+
+    def _saveConfig(self):
+        "Save the current configuration data to the configuration file." 
+        config = ConfigParser.RawConfigParser()
+        cfgfile = self._getConfigFile(_Config.CONFIG_FILE)
+        if not self._checkLocalFile(cfgfile):
+            for section in self._config:
+                config.add_section(section)
+                for option in self._config[section]:
+                    if option == "excludes":
+                        if self._config[section][option]:
+                            # Need to handle the comma-delimited quoted strings.
+                            excstr = ', '.join(self._config[section][option])
+                            config.set(section, option, excstr)
+                        else:
+                            config.set(section, option, "")
+                    else:
+                        config.set(section, option, self._config[section][option])
+            logging.debug("Writing configuration...")
+            f = open(cfgfile, 'w')
+            config.write(f)
+            f.close()
+        else:
+            logging.error("Could not write configuration!")
 
     def reset(self):
         self._map = {}

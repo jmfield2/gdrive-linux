@@ -19,6 +19,7 @@ import sys
 import logging
 import shutil
 import pickle
+import pprint
 
 import gdata.gauth
 import gdata.docs.client
@@ -348,8 +349,10 @@ class DocsSession(object):
         os.mkdir(path)
         return False
 
-    def getNumResources(self, path):
+    def getNumResources(self, path=None):
         "Returns the total number of resources (files, folders) in the specified path, and all subtrees."
+        if path is None:
+            path = ''
         if path not in self._map["bypath"]:
             logging.error("Path \"%s\" is unknown!" % path)
             return 0
@@ -387,3 +390,9 @@ class DocsSession(object):
                 self.download(folder, lpath)
         else:
             self._download(path, localpath)
+
+    def getInfo(self):
+        "Return general information."
+        userdata = self.getUserData()
+        userdata["Total resources"] = self.getNumResources()
+        return userdata

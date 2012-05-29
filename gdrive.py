@@ -18,6 +18,7 @@ import os
 import sys
 import logging
 import optparse
+import pprint
 
 import gdocs
 
@@ -97,16 +98,6 @@ Stops the GDrive daemon, gdrived, if it is running.
     sys.exit("Not implemented!")
 
 @command
-def userinfo(argv):
-    """Print user info.
-gdrive userinfo
-
-Prints user information on the currently authenticated Google Drive account..
-
-"""
-    print session.getUserData()
-    
-@command
 @alias("ls")
 def list(argv):
     """List folder contents.
@@ -183,6 +174,16 @@ gdrive reset
 This command clears cached GDrive metadata and recreates it by querying the server.
 """
     session.reset()
+
+@command
+def info(argv):
+    """Print general information.
+gdrive info
+
+Prints out general information, e.g. total number of files/folders, quotas used, etc.
+
+"""
+    pprint.pprint(session.getInfo())
 
 def _parseArgs():
     "Parse command-line arguments."

@@ -387,7 +387,7 @@ class DocsSession(object):
             if self._checkLocalFolder(localpath):
                 logging.error("Cannot overwrite local path \"%s\", exiting!" % localpath)
                 return 
-            logging.info("Downloading folder \"%s\" to \"%s\" (%d of %d)..." % (path, localpath, self._folder_count, self._num_folders))
+            logging.info("Downloading folder %s (%d of %d)..." % (localpath, self._folder_count, self._num_folders))
             (folders, files) = self._readFolder(path)
             for fname in files:
                 lpath = os.path.join(localpath, os.path.basename(fname))
@@ -398,7 +398,7 @@ class DocsSession(object):
                 self._download(folder, lpath)
             self._folder_count += 1
         else:
-            logging.info("Downloading file \"%s\" to \"%s\" (%d bytes) (%d of %d)..." % (path, localpath, self.getFileSize(path), self._file_count, self._num_files))
+            logging.info("Downloading file %s (%d bytes) (%d of %d)..." % (localpath, self.getFileSize(path), self._file_count, self._num_files))
             if self._checkLocalFile(localpath):
                 return False
             self._client.DownloadResource(entry, localpath)

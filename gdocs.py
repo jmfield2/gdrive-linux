@@ -17,8 +17,8 @@
 import os
 import sys
 import logging
-import json
 import shutil
+import pickle
 
 import gdata.gauth
 import gdata.docs.client
@@ -45,7 +45,7 @@ class _Config(object):
     # Token blob file name.
     TOKEN_FILE = 'token.txt' 
     # Metadata file name.
-    METADATA_FILE = 'metadata.json'
+    METADATA_FILE = 'metadata.dat'
      
     # URI to get the root feed. Can also be used to check if a resource is in the 
     # root collection, i.e. its parent is this.
@@ -268,26 +268,21 @@ class DocsSession(object):
 
     def _load(self):
         "Load metadata from local file, if it exists."
-        
-        # Try to read saved metadata.
         metafile = self._getConfigFile(_Config.METADATA_FILE)
         if os.path.exists(metafile):
             logging.debug("Reading cached metadata...")
-            f = open(metafile, 'r')
-            # Load JSON to maps.
-            self._map = json.load(f)
+            f = open(metafile, 'rb')
+            self._map = pickle.load(f)
             f.close()
             return True
         return False
     
     def _save(self):
         "Save metadata to local file."
-        
-        # Save metadata.
         metafile = self._getConfigFile(_Config.METADATA_FILE)
         logging.debug("Saving metadata...")
-        f = open(metafile, 'w')
-        json.dump(self._map, f)
+        f = open(metafile, 'wb')
+        pickle.dump(self._map, f)
         f.close()
     
     def isFolder(self, path):

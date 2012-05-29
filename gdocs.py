@@ -68,6 +68,9 @@ class DocsSession(object):
         self._map["bypath"] = DirectoryTree()    ## Maps paths to resource IDs.
         self._map["byhash"] = {}    ## Maps resource IDs to paths. 
         
+        self._folder_count = 0
+        self._file_count = 0
+        
         self._authorise()
         if self._token == None:
             # TODO: throw exception.
@@ -122,6 +125,10 @@ class DocsSession(object):
         self._map["byhash"] = {} 
         self._walk()
         self._save()
+        self._folder_count = 0
+        self._file_count = 0
+        self._num_folders = 0
+        self._num_files = 0
 
     def _authorise(self):
         "Perform OAuth 2.0 authorisation."
@@ -376,39 +383,37 @@ class DocsSession(object):
         if not entry:
             logging.error("Failed to download path \"%s\"" % path)
             return False
-        if entry.get_resource_type() == 'folder':
-            logging.error("Path \"%s\" is a folder!" % path)
-            return False
-        if self._checkLocalFile(localpath):
-            return False
-        self._client.DownloadResource(entry, localpath)
+        if self.isFolder(path):
+            if self._checkLocalFolder(localpath):
+                logging.error("Cannot overwrite local path \"%s\", exiting!" % localpath)
+                return 
+            logging.info("Downloading folder \"%s\" to \"%s\" (%d of %d)..." % (path, localpath, self._folder_count, self._num_folders))
+            (folders, files) = self._readFolder(path)
+            for fname in files:
+                lpath = os.path.join(localpath, os.path.basename(fname))
+                self._download(fname, lpath)
+                self._file_count += 1
+            for folder in folders:
+                lpath = os.path.join(localpath, os.path.basename(folder))
+                self._download(folder, lpath)
+            self._folder_count += 1
+        else:
+            logging.info("Downloading file \"%s\" to \"%s\" (%d bytes) (%d of %d)..." % (path, localpath, self.getFileSize(path), self._file_count, self._num_files))
+            if self._checkLocalFile(localpath):
+                return False
+            self._client.DownloadResource(entry, localpath)
         return True
 
     def download(self, path, localpath):
         "Download a file or a folder tree."
-        folder_count = 1
-        num_folders = self.getNumFolders(path)
-        file_count = 1
-        num_files = self.getNumFiles(path)
-        if self.isFolder(path):
-            logging.info("Downloading folder \"%s\" to \"%s\" (%d of %d)..." % (path, localpath, folder_count, num_folders))
-            if self._checkLocalFolder(localpath):
-                logging.error("Cannot overwrite local path \"%s\", exiting!" % localpath)
-                return 
-            (folders, files) = self._readFolder(path)
-            for fname in files:
-                lpath = os.path.join(localpath, os.path.basename(fname))
-                logging.info("Downloading file \"%s\" to \"%s\" (%d bytes) (%d of %d)..." % (fname, lpath, self.getFileSize(fname), file_count, num_files))
-                self._download(fname, lpath)
-                file_count += 1
-            for folder in folders:
-                lpath = os.path.join(localpath, os.path.basename(folder))
-                self.download(folder, lpath)
-            folder_count += 1
-        else:
-            logging.info("Downloading file \"%s\" to \"%s\" (%d bytes)..." % (path, localpath, self.getFileSize(path)))
-            self._download(path, localpath)
-
+        self._folder_count = 1
+        self._num_folders = self.getNumFolders(path)
+        self._file_count = 1
+        self._num_files = self.getNumFiles(path)
+        self._download(path, localpath)
+        self._folder_count = 0
+        self._file_count = 0
+        
     def getInfo(self):
         "Return general information."
         userdata = self.getUserData()

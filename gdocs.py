@@ -306,7 +306,7 @@ class DocsSession(object):
         size = 0
         if not self.isFolder(path):
             if path in self._map["bypath"]:
-                size = self._map["bypath"][path]["size"]
+                size = int(self._map["bypath"][path]["size"])
         return size
 
     def update(self, path='/'):
@@ -353,6 +353,22 @@ class DocsSession(object):
         "Returns the total number of resources (files, folders) in the specified path, and all subtrees."
         return len(self._map["bypath"].keys(path))                 
         
+    def getNumFolders(self, path=None):
+        "Returns the total number of folders in the specified path, and all subtrees."
+        count = 0
+        for value in self._map["bypath"].itervalues(path):
+            if value["type"] == "folder":
+                count += 1
+        return count
+        
+    def getNumFiles(self, path=None):
+        "Returns the total number of files in the specified path, and all subtrees."
+        count = 0
+        for value in self._map["bypath"].itervalues(path):
+            if value["type"] == "file":
+                count += 1
+        return count
+
     def _download(self, path, localpath):
         "Download a file."
         res_id = self._pathToResourceId(path)
@@ -365,25 +381,32 @@ class DocsSession(object):
             return False
         if self._checkLocalFile(localpath):
             return False
-        logging.debug("Downloading \"%s\" to \"%s\"..." % (path, localpath))
         self._client.DownloadResource(entry, localpath)
         return True
 
     def download(self, path, localpath):
         "Download a file or a folder tree."
+        folder_count = 1
+        num_folders = self.getNumFolders(path)
+        file_count = 1
+        num_files = self.getNumFiles(path)
         if self.isFolder(path):
-            logging.debug("Downloading folder \"%s\" to \"%s\"..." % (path, localpath))
+            logging.info("Downloading folder \"%s\" to \"%s\" (%d of %d)..." % (path, localpath, folder_count, num_folders))
             if self._checkLocalFolder(localpath):
                 logging.error("Cannot overwrite local path \"%s\", exiting!" % localpath)
                 return 
             (folders, files) = self._readFolder(path)
             for fname in files:
                 lpath = os.path.join(localpath, os.path.basename(fname))
+                logging.info("Downloading file \"%s\" to \"%s\" (%d bytes) (%d of %d)..." % (fname, lpath, self.getFileSize(fname), file_count, num_files))
                 self._download(fname, lpath)
+                file_count += 1
             for folder in folders:
                 lpath = os.path.join(localpath, os.path.basename(folder))
                 self.download(folder, lpath)
+            folder_count += 1
         else:
+            logging.info("Downloading file \"%s\" to \"%s\" (%d bytes)..." % (path, localpath, self.getFileSize(path)))
             self._download(path, localpath)
 
     def getInfo(self):

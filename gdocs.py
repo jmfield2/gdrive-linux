@@ -23,6 +23,7 @@ import shutil
 import gdata.gauth
 import gdata.docs.client
 
+from dirtree import DirectoryTree
 
 class _Config(object):
     "Class to hold configuration data."
@@ -63,7 +64,7 @@ class DocsSession(object):
         self._token = None          ## OAuth 2,0 token object.
         self._client = None         ## Google Docs API client object.
         self._map = {}              ## Metadata dict.
-        self._map["bypath"] = {}    ## Maps paths to resource IDs.
+        self._map["bypath"] = DirectoryTree()    ## Maps paths to resource IDs.
         self._map["byhash"] = {}    ## Maps resource IDs to paths. 
         
         self._authorise()
@@ -228,18 +229,17 @@ class DocsSession(object):
         for entry in items:
             itempath = os.path.join(path, entry.title.text)
             itemid = entry.resource_id.text
+            item = { "path": itempath,
+                     "resource_id": itemid, 
+                     "uri": entry.content.src, 
+                     "size": entry.quota_bytes_used.text }
             if entry.get_resource_type() == 'folder':
+                item["type"] = "folder"
                 folders.append(itempath)
-                self._map["bypath"][itempath] = { "resource_id": itemid, 
-                                                  "uri": entry.content.src, 
-                                                  "type": "folder", 
-                                                  "size": entry.quota_bytes_used.text }
             else:
                 files.append(itempath)
-                self._map["bypath"][itempath] = { "resource_id": itemid, 
-                                                  "uri": entry.content.src, 
-                                                  "type": "file", 
-                                                  "size": entry.quota_bytes_used.text }
+                item["type"] = "file"
+            self._map["bypath"].add(itempath, item)
             self._map["byhash"][itemid] = itempath
         folders.sort()
         files.sort()
@@ -351,9 +351,7 @@ class DocsSession(object):
         if path not in self._map["bypath"]:
             logging.error("Path \"%s\" is unknown!" % path)
             return 0
-
-        count = 0                 
-        return count
+        return len(self._map["bypath"].keys(path))                 
         
     def _download(self, path, localpath):
         "Download a file."

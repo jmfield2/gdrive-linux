@@ -196,13 +196,15 @@ Utility to access Google Drive.
     parser.add_option('-v', '--verbose', dest='verbose', action='store_true', default=False,                   help='Turn on extra logging')
     parser.add_option('-d', '--debug',   dest='debug',   action='store_true', default=False,                   help='Turn on debug logging')
     (options, args) = parser.parse_args()
-    return options
+    return (options, args)
 
 
 def main(argv):
     "Main function."
 
-    opts = _parseArgs()
+    (opts, args) = _parseArgs()
+    print opts
+    print args
     if opts.debug:
         logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
     elif opts.verbose:
@@ -210,27 +212,27 @@ def main(argv):
     else:
         logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.WARNING)
 
+    cmdfound = False
+    i = 0
+    for i in range(len(args)):
+        if args[i] in commands or args[i] in aliases:
+            cmdfound = True
+            break
+    
+    if not cmdfound:
+        usage()
+        return None
+
     global session
     session = gdocs.DocsSession()
     if session == None:
         sys.exit("Error, could not create Google Docs session!")
 
-    cmdfound = False
-    i = 0
-    for i in range(len(argv)):
-        if argv[i] in commands or argv[i] in aliases:
-            cmdfound = True
-            break
-
-    if not cmdfound:
-        usage()
-        return None
-
     res = None
-    if argv[i] in commands:
-        res = commands[argv[i]](argv[i+1:])
-    elif argv[i] in aliases:
-        res = aliases[argv[i]](argv[i+1:])
+    if args[i] in commands:
+        res = commands[args[i]](args[i+1:])
+    elif args[i] in aliases:
+        res = aliases[args[i]](args[i+1:])
 
     return res
 

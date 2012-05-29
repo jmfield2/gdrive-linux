@@ -115,6 +115,13 @@ class DocsSession(object):
     def getConfigFile(self, name):
         return self._getConfigFile(name)
 
+    def reset(self):
+        self._map = {}
+        self._map["bypath"] = DirectoryTree()
+        self._map["byhash"] = {} 
+        self._walk()
+        self._save()
+
     def _authorise(self):
         "Perform OAuth 2.0 authorisation."
         saved_auth = False

@@ -175,6 +175,15 @@ contents.
             localpath = argv[1]
     session.download(path, localpath)
 
+@command
+def reset(argv):
+    """Reset GDrive cached metadata.
+gdrive reset
+
+This command clears cached GDrive metadata and recreates it by querying the server.
+"""
+    session.reset()
+
 def _parseArgs():
     "Parse command-line arguments."
     helpStr = """

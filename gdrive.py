@@ -22,7 +22,6 @@ import pprint
 
 import gdocs
 
-
 session = None
 commands = {}
 aliases = {}

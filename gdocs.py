@@ -19,12 +19,13 @@ import sys
 import logging
 import shutil
 import pickle
-import pprint
 
 import gdata.gauth
 import gdata.docs.client
 
 from dirtree import DirectoryTree
+import progressbar
+
 
 class _Config(object):
     "Class to hold configuration data."
@@ -57,6 +58,8 @@ class DocsSession(object):
     
     def __init__(self, verbose=False, debug=False):
         "Class constructor."
+        self._debug = debug
+        self._verbose = verbose
         if debug:
             logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
         elif verbose:
@@ -70,6 +73,7 @@ class DocsSession(object):
         
         self._folder_count = 0
         self._file_count = 0
+        self._bar = None
         
         self._authorise()
         if self._token == None:
@@ -129,6 +133,7 @@ class DocsSession(object):
         self._file_count = 0
         self._num_folders = 0
         self._num_files = 0
+        self._bar = None
 
     def _authorise(self):
         "Perform OAuth 2.0 authorisation."
@@ -399,6 +404,8 @@ class DocsSession(object):
             self._folder_count += 1
         else:
             logging.info("Downloading file %s (%d bytes) (%d of %d)..." % (localpath, self.getFileSize(path), self._file_count, self._num_files))
+            if self._bar:
+                self._bar.render(self._file_count * 100 / self._num_files, localpath)
             if self._checkLocalFile(localpath):
                 return False
             self._client.DownloadResource(entry, localpath)
@@ -410,6 +417,9 @@ class DocsSession(object):
         self._num_folders = self.getNumFolders(path)
         self._file_count = 1
         self._num_files = self.getNumFiles(path)
+        if not self._verbose and not self._debug:
+            if self._num_folders + self._num_files > 2:
+                self._bar = progressbar.ProgressBar(width=80)
         self._download(path, localpath)
         self._folder_count = 0
         self._file_count = 0

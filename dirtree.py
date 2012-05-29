@@ -49,7 +49,7 @@ class _Node(dict):
     """
 
     def __init__(self, value=_Null):
-        super(_Node, self).__init__()    # The base dictionary object.
+        super(_Node, self).__init__()   # The base dictionary object.
         self.path = None                # Stores the path to this node.
         self.value = value
         self.children = {}

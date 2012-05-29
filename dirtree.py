@@ -82,15 +82,15 @@ class DirectoryTree(DictMixin, object):
     >>> t.add("/a/b/c/d/e")
     >>> t.add("/foo/bar")
     >>> print t
-    DirectoryTree({'/': '/', '/a': '/a', '/a/b': /a/b', '/a/b/c': /a/b/c', /a/b/c/d': '/a/b/c/d', '/a/b/c/d/e': '/a/b/c/d/e', '/foo/bar': '/foo/bar'})
+    DirectoryTree({'': '/', '/a/b/c/d': '/a/b/c/d', '/a/b/c/d/e': '/a/b/c/d/e', '/foo/bar': '/foo/bar'})
     >>> t.keys()
-    ['/', '/a', '/a/b', '/a/b/c', /a/b/c/d', '/a/b/c/d/e', '/foo', /foo/bar']
+    ['', '/a/b/c/d', '/a/b/c/d/e', '/foo/bar']
     >>> t.values()
-    ['/', '/a', '/a/b', '/a/b/c', /a/b/c/d', '/a/b/c/d/e', '/foo', /foo/bar']
+    ['/', '/a/b/c/d', '/a/b/c/d/e', '/foo/bar']
     >>> t.items()
-    [('/', '/'), ('/a', '/a'), ('/a/b', '/a/b'), ('/a/b/c', '/a/b/c'), ('/a/b/c/d', '/a/b/c/d'), ('/a/b/c/d/e', '/a/b/c/d/e'), ('/foo/bar', '/foo/bar')]
+    [('', '/'), ('/a/b/c/d', '/a/b/c/d'), ('/a/b/c/d/e', '/a/b/c/d/e'), ('/foo/bar', '/foo/bar')]
     >>> t.search("/a/b/c")
-    ['/a/b/c', '/a/b/c/d', '/a/b/c/d/e']
+    ['/a/b/c/d', '/a/b/c/d/e']
     """
 
     def __init__(self, seq=None, **kwargs):
@@ -116,20 +116,9 @@ class DirectoryTree(DictMixin, object):
     def __setitem__(self, key, value):
         node = self._root
         for part in key.split('/'):
-            #print '*** part:', part
-            parent = node
-            #print '*** node:', node
             next_node = node.children.get(part)
             if next_node is None:
-                # Create the intermediate nodes.
                 node = node.children.setdefault(part, _Node())
-                if part == '/':
-                    node.value = '/'
-                else:
-                    if parent.value is _Null:
-                        node.value = '/' + part
-                    else:
-                        node.value = '/'.join(parent.value.split('/') + [part])
             else:
                 node = next_node
         node.value = value

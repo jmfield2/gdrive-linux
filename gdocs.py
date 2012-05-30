@@ -389,6 +389,8 @@ class DocsSession(object):
         return size
 
     def update(self, path='/'):
+        # TODO Request change feed from the last changestamp. 
+        # If no changestamp, then start at TBD.
         self._walk(root=path)
         self._save()
 

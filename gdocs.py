@@ -21,6 +21,7 @@ import shutil
 import pickle
 import ConfigParser
 import csv
+import pprint
 
 import gdata.gauth
 import gdata.docs.client
@@ -395,11 +396,22 @@ class DocsSession(object):
                 size = int(self._metadata["map"]["bypath"][path]["size"])
         return size
 
+    def _getChanges(self, changestamp=None):
+        logging.debug("Getting changes...")
+        if changestamp is None:
+            feed = self._client.GetChanges()
+        else:
+            feed = self._client.GetChanges(changestamp=str(changestamp))
+        logging.debug("Got %d changes" % len(feed.entry))
+        for change in feed.entry:
+            print "*** Change:", change.title.text, change.changestamp.value
+
     def update(self, path='/'):
         # TODO Request change feed from the last changestamp. 
         # If no changestamp, then start at TBD.
-        self._walk(root=path)
-        self._save()
+        #self._walk(root=path)
+        #self._save()
+        self._getChanges()
 
     def _checkLocalFile(self, path):
         "Check if the specified file already exists, if so prompt for overwrite."

@@ -78,18 +78,23 @@ class DocsSession(object):
         elif verbose:
             logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
-        self._config = {}           ## Configuration dict.
-        self._loadConfig()
+        self._config = {}       ## Configuration dict.
         
-        self._token = None          ## OAuth 2,0 token object.
-        self._client = None         ## Google Docs API client object.
-        self._map = {}              ## Metadata dict.
-        self._map["bypath"] = DirectoryTree()    ## Maps paths to resource IDs.
-        self._map["byhash"] = {}    ## Maps resource IDs to paths. 
+        self._token = None      ## OAuth 2,0 token object.
+        self._client = None     ## Google Docs API client object.
+        
+        self._metadata = {}                                 ## Metadata dict.
+        self._metadata["changestamp"] = 0                   ## Stores the last changestamp.
+        self._metadata["map"] = {}
+        self._metadata["map"]["bypath"] = DirectoryTree()   ## Maps paths to resource IDs.
+        self._metadata["map"]["byhash"] = {}                ## Maps resource IDs to paths. 
         
         self._folder_count = 0
         self._file_count = 0
         self._bar = None
+
+        # Load configuration (if any), or initialise to default.
+        self._loadConfig()
         
         self._authorise()
         if self._token == None:
@@ -191,9 +196,11 @@ class DocsSession(object):
             logging.error("Could not write configuration!")
 
     def reset(self):
-        self._map = {}
-        self._map["bypath"] = DirectoryTree()
-        self._map["byhash"] = {} 
+        self._metadata = {}
+        self._metadata["changestamp"] = 0
+        self._metadata["map"] = {}
+        self._metadata["map"]["bypath"] = DirectoryTree()
+        self._metadata["map"]["byhash"] = {} 
         self._walk()
         self._save()
         self._folder_count = 0
@@ -285,8 +292,8 @@ class DocsSession(object):
         if path == '/':
             uri = _Config.ROOT_FEED_URI
         else:
-            if path in self._map["bypath"]:
-                uri = self._map["bypath"][path]["uri"]
+            if path in self._metadata["map"]["bypath"]:
+                uri = self._metadata["map"]["bypath"][path]["uri"]
             else:
                 # TODO: try to handle this better.
                 logging.error("Path \"%s\" is unknown!" % path)
@@ -296,8 +303,8 @@ class DocsSession(object):
     
     def _pathToResourceId(self, path):
         "Get the resource ID for a path."
-        if path in self._map["bypath"]:
-            res_id = self._map["bypath"][path]["resource_id"]
+        if path in self._metadata["map"]["bypath"]:
+            res_id = self._metadata["map"]["bypath"][path]["resource_id"]
         else:
             # TODO: try to handle this better.
             logging.error("Path \"%s\" is unknown!" % path)
@@ -326,8 +333,8 @@ class DocsSession(object):
             else:
                 files.append(itempath)
                 item["type"] = "file"
-            self._map["bypath"].add(itempath, item)
-            self._map["byhash"][itemid] = itempath
+            self._metadata["map"]["bypath"].add(itempath, item)
+            self._metadata["map"]["byhash"][itemid] = itempath
         folders.sort()
         files.sort()
         return folders, files
@@ -352,7 +359,7 @@ class DocsSession(object):
         if os.path.exists(metafile):
             logging.debug("Reading cached metadata...")
             f = open(metafile, 'rb')
-            self._map = pickle.load(f)
+            self._metadata = pickle.load(f)
             f.close()
             return True
         return False
@@ -362,13 +369,13 @@ class DocsSession(object):
         metafile = self._getConfigFile(_Config.METADATA_FILE)
         logging.debug("Saving metadata...")
         f = open(metafile, 'wb')
-        pickle.dump(self._map, f)
+        pickle.dump(self._metadata, f)
         f.close()
     
     def isFolder(self, path):
         "Return true if the specified path is a folder."
-        if path in self._map["bypath"]:
-            if self._map["bypath"][path]["type"] == "folder":
+        if path in self._metadata["map"]["bypath"]:
+            if self._metadata["map"]["bypath"][path]["type"] == "folder":
                 return True
             else:
                 return False
@@ -384,8 +391,8 @@ class DocsSession(object):
         "Return the size in bytes of the specified path, if it is a file."
         size = 0
         if not self.isFolder(path):
-            if path in self._map["bypath"]:
-                size = int(self._map["bypath"][path]["size"])
+            if path in self._metadata["map"]["bypath"]:
+                size = int(self._metadata["map"]["bypath"][path]["size"])
         return size
 
     def update(self, path='/'):
@@ -432,12 +439,12 @@ class DocsSession(object):
 
     def getNumResources(self, path=None):
         "Returns the total number of resources (files, folders) in the specified path, and all subtrees."
-        return len(self._map["bypath"].keys(path))                 
+        return len(self._metadata["map"]["bypath"].keys(path))                 
         
     def getNumFolders(self, path=None):
         "Returns the total number of folders in the specified path, and all subtrees."
         count = 0
-        for value in self._map["bypath"].itervalues(path):
+        for value in self._metadata["map"]["bypath"].itervalues(path):
             if value["type"] == "folder":
                 count += 1
         return count
@@ -445,7 +452,7 @@ class DocsSession(object):
     def getNumFiles(self, path=None):
         "Returns the total number of files in the specified path, and all subtrees."
         count = 0
-        for value in self._map["bypath"].itervalues(path):
+        for value in self._metadata["map"]["bypath"].itervalues(path):
             if value["type"] == "file":
                 count += 1
         return count

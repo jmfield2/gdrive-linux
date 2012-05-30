@@ -54,6 +54,9 @@ class _Config(object):
     # Configuration file name.
     CONFIG_FILE = 'gdrive.cfg'
 
+    # Maximum results to return per request.
+    MAX_RESULTS = 500
+    
     # URI to get the root feed. Can also be used to check if a resource is in the 
     # root collection, i.e. its parent is this.
     ROOT_FEED_URI = "/feeds/default/private/full/folder%3Aroot/contents"
@@ -398,20 +401,30 @@ class DocsSession(object):
 
     def _getChanges(self, changestamp=None):
         logging.debug("Getting changes...")
+        changes = []
         if changestamp is None:
-            feed = self._client.GetChanges()
+            feed = self._client.GetChanges(max_results=_Config.MAX_RESULTS)
         else:
-            feed = self._client.GetChanges(changestamp=str(changestamp))
-        logging.debug("Got %d changes" % len(feed.entry))
-        for change in feed.entry:
-            print "*** Change:", change.title.text, change.changestamp.value
+            feed = self._client.GetChanges(changestamp=str(changestamp), max_results=_Config.MAX_RESULTS)
+        if feed:
+            changes.extend(feed.entry)
+        while feed and len(feed.entry) == _Config.MAX_RESULTS:
+            feed = self._client.GetNext(feed)
+            changes.extend(feed.entry)
+        return changes
 
     def update(self, path='/'):
         # TODO Request change feed from the last changestamp. 
         # If no changestamp, then start at TBD.
         #self._walk(root=path)
         #self._save()
-        self._getChanges()
+        changestamp = None
+        if self._metadata["changestamp"] != 0:
+            changestamp = self._metadata["changestamp"]
+        changes = self._getChanges(changestamp)
+        if len(changes) > 0:
+            self._metadata["changestamp"] = changes[-1].changestamp.value
+            logging.debug("Got %d changes, last changestamp is %d" % (len(changes), self._metadata["changestamp"]))
 
     def _checkLocalFile(self, path):
         "Check if the specified file already exists, if so prompt for overwrite."

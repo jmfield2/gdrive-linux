@@ -344,7 +344,7 @@ class DocsSession(object):
         logging.info("Authorising the Docs client API...")
         self._client = self._token.authorize(self._client)
     
-    def getUserData(self):
+    def getMetadata(self):
         "Return Google Docs user metadata."
         metadata = self._client.GetMetadata()
         metadict = { 'quota': { 'total':   metadata.quota_bytes_total.text,
@@ -357,6 +357,8 @@ class DocsSession(object):
         metadict["upload_sizes"] = {}
         for upload_size in metadata.max_upload_sizes:
             metadict["upload_sizes"][upload_size.kind] = upload_size.text
+        text = str(metadata)
+        print text
         return metadict
 
     def _resourceToUri(self, resource):
@@ -666,6 +668,6 @@ class DocsSession(object):
         
     def getInfo(self):
         "Return general information."
-        userdata = self.getUserData()
+        userdata = self.getMetadata()
         userdata["Total resources"] = self.getNumResources()
         return userdata

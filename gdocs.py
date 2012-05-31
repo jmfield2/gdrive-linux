@@ -102,7 +102,7 @@ class DocsSession(object):
         self._metadata["changestamp"] = None                ## Stores the last changestamp, if any.
         self._metadata["map"] = {}
         self._metadata["map"]["bypath"] = DirectoryTree()   ## Maps paths to resource IDs.
-        self._metadata["map"]["byhash"] = {}                ## Maps resource IDs to paths. 
+        self._metadata["map"]["byid"] = {}                  ## Maps resource IDs to paths. 
         
         self._folder_count = 0
         self._file_count = 0
@@ -248,7 +248,7 @@ class DocsSession(object):
         self._metadata["changestamp"] = None
         self._metadata["map"] = {}
         self._metadata["map"]["bypath"] = DirectoryTree()
-        self._metadata["map"]["byhash"] = {} 
+        self._metadata["map"]["byid"] = {} 
         self._walk()
         self._save()
         self._folder_count = 0
@@ -335,6 +335,14 @@ class DocsSession(object):
         "Get the URI for a resource."
         return resource.content.src
     
+    def _resourceIdToPath(self, resource_id):
+        "Get the path for a resource ID."
+        try:
+            path = self._metadata["map"]["byid"][resource_id]
+        except KeyError:
+            path = None
+        return path
+    
     def _pathToUri(self, path):
         "Get the URI for a path."
         if path == '/':
@@ -382,7 +390,7 @@ class DocsSession(object):
                 files.append(itempath)
                 item["type"] = "file"
             self._metadata["map"]["bypath"].add(itempath, item)
-            self._metadata["map"]["byhash"][itemid] = itempath
+            self._metadata["map"]["byid"][itemid] = itempath
         folders.sort()
         files.sort()
         return folders, files
@@ -444,9 +452,10 @@ class DocsSession(object):
         return size
 
     def _getChanges(self, changestamp=None):
-        "Get a feed of Change objects since the specified changestamp."
-        logging.debug("Getting changes...")
+        "Get a list of resource IDs that have changed since the specified changestamp."
+        logging.debug("Getting changes, changestamp=%s..." % changestamp)
         changes = []
+        resource_ids = []
         if changestamp is None:
             feed = self._client.GetChanges(max_results=_Config.MAX_RESULTS)
         else:
@@ -459,7 +468,10 @@ class DocsSession(object):
         if len(changes) > 0:
             self._metadata["changestamp"] = changes[-1].changestamp.value
             logging.debug("Got %d changes, last changestamp is %s" % (len(changes), self._metadata["changestamp"]))
-        return changes
+            for change in changes:
+                resource_ids.append(change.resource_id.text)
+            logging.debug("Changed resources: %s" % resource_ids)
+        return resource_ids
 
     def update(self, path='/'):
         "Update the local tree at the specified path to match the server."
@@ -468,15 +480,17 @@ class DocsSession(object):
         if self._metadata["changestamp"] is None:
             # Download path first.
             self.download(path, self._getLocalPath(path))
-        changes = self._getChanges(self._metadata["changestamp"])
+        resource_ids = self._getChanges(self._metadata["changestamp"])
         # TODO: will need to actually update the local copy here, not just the metadata.
         self._walk(root=path)
         # Now check for changes again, since before we walked.
-        changes = self._getChanges(self._metadata["changestamp"])
-        if len(changes) > 0:
+        resource_ids = self._getChanges(self._metadata["changestamp"])
+        if len(resource_ids) > 0:
             # TODO: will need to actually update the local copy here. 
             #self._walk(root=path)
             # TODO: iterate over the changes, downloading each resource.
+            for res_id in resource_ids:
+                logging.debug("TODO: get resource %s (%s)" % (res_id, self._resourceIdToPath(res_id)))
             logging.error("Not implemented!")
         self._save()
 

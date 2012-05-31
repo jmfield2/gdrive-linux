@@ -77,10 +77,21 @@ class DocsSession(object):
         "Class constructor."
         self._debug = debug
         self._verbose = verbose
-        if debug:
-            logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
-        elif verbose:
-            logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
+        if verbose or debug:
+            if debug:
+                formatter = logging.Formatter('%(levelname)-7s %(filename)-16s %(lineno)-5d %(funcName)-16s  %(message)s')
+            else:
+                formatter = logging.Formatter('%(levelname)-7s %(message)s')
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setFormatter(formatter)
+            logger = logging.getLogger()
+            logger.addHandler(handler)
+            if debug:
+                logger.setLevel(logging.DEBUG)
+            else:
+                logger.setLevel(logging.INFO)
+        else:
+            logging.basicConfig(format='%(levelname)-7s %(message)s', level=logging.WARNING)
 
         self._config = {}       ## Configuration dict.
         
@@ -201,26 +212,38 @@ class DocsSession(object):
             logging.error("Could not write configuration!")
 
     def _getLocalRoot(self):
+        "Get the path to the root of the local storage tree."
         return self._config["localstore"]["path"]
 
     def _setLocalRoot(self, path):
-        logging.debug("Setting local root not yet implemented!")
+        "Set the path to the root of the local storage tree."
+        logging.error("Setting local root is not yet implemented!")
         #self._config["localstore"]["path"] = path
         # TODO check for existing tree at new path.
         # TODO move existing local tree to new path.
         self._saveConfig()
 
+    def _getLocalPath(self, path):
+        "Return the local path corresponding to the specified remote path."
+        if path.startswith(self._config["localstore"]["path"]):
+            return path
+        else:
+            return os.path.join(self._config["localstore"]["path"], path)
+
     def _getExcludes(self):
+        "Get the list of folders/files to be excluded."
         return self._config["general"]["excludes"]
 
     def _setExcludes(self, exclist):
-        logging.debug("Setting local root not yet implemented!")
+        "Set the list of folders/files to be excluded."
+        logging.error("Setting local root is not yet implemented!")
         #self._config["general"]["excludes"] = exclist
         # TODO check for existing tree at new path.
         # TODO move existing local tree to new path.
         self._saveConfig()
 
     def reset(self):
+        "Reset local cached metadata."
         self._metadata = {}
         self._metadata["changestamp"] = None
         self._metadata["map"] = {}
@@ -421,6 +444,7 @@ class DocsSession(object):
         return size
 
     def _getChanges(self, changestamp=None):
+        "Get a feed of Change objects since the specified changestamp."
         logging.debug("Getting changes...")
         changes = []
         if changestamp is None:
@@ -438,8 +462,12 @@ class DocsSession(object):
         return changes
 
     def update(self, path='/'):
+        "Update the local tree at the specified path to match the server."
         # Request change feed from the last changestamp. 
         # If no stored changestamp, then start at the beginning.
+        if self._metadata["changestamp"] is None:
+            # Download path first.
+            self.download(path, self._getLocalPath(path))
         changes = self._getChanges(self._metadata["changestamp"])
         # TODO: will need to actually update the local copy here, not just the metadata.
         self._walk(root=path)
@@ -447,7 +475,9 @@ class DocsSession(object):
         changes = self._getChanges(self._metadata["changestamp"])
         if len(changes) > 0:
             # TODO: will need to actually update the local copy here. 
-            self._walk(root=path)
+            #self._walk(root=path)
+            # TODO: iterate over the changes, downloading each resource.
+            logging.error("Not implemented!")
         self._save()
 
     def _checkLocalFile(self, path):
@@ -490,20 +520,26 @@ class DocsSession(object):
         "Returns the total number of resources (files, folders) in the specified path, and all subtrees."
         return len(self._metadata["map"]["bypath"].keys(path))                 
         
-    def getNumFolders(self, path=None):
-        "Returns the total number of folders in the specified path, and all subtrees."
+    def getNumRemoteFolders(self, path=None):
+        "Returns the total number of folders in the specified remote path, and all subtrees."
         count = 0
         for value in self._metadata["map"]["bypath"].itervalues(path):
             if value["type"] == "folder":
                 count += 1
         return count
         
-    def getNumFiles(self, path=None):
-        "Returns the total number of files in the specified path, and all subtrees."
+    def getNumLocalFolders(self, path):
+        "Returns the total number of folders in the specified local path, and all subtrees."
         count = 0
-        for value in self._metadata["map"]["bypath"].itervalues(path):
-            if value["type"] == "file":
-                count += 1
+        for root, dirs, files in os.walk(path):
+            count += len(dirs)
+        return count
+        
+    def getNumLocalFiles(self, path):
+        "Returns the total number of files in the specified local path, and all subtrees."
+        count = 0
+        for root, dirs, files in os.walk(path):
+            count += len(files)
         return count
 
     def _download(self, path, localpath):
@@ -536,16 +572,41 @@ class DocsSession(object):
             self._client.DownloadResource(entry, localpath)
         return True
 
-    def download(self, path, localpath):
+    def download(self, path, localpath=None):
         "Download a file or a folder tree."
         self._folder_count = 1
-        self._num_folders = self.getNumFolders(path)
+        self._num_folders = self.getNumRemoteFolders(path)
         self._file_count = 1
-        self._num_files = self.getNumFiles(path)
+        self._num_files = self.getNumRemoteFiles(path)
         if not self._verbose and not self._debug:
             if self._num_folders + self._num_files > 2:
                 self._bar = progressbar.ProgressBar(width=80)
+        if localpath is None:
+            localpath = os.path.join(self._getLocalRoot(), path)
         self._download(path, localpath)
+        self._folder_count = 0
+        self._file_count = 0
+        
+    def _upload(self, localpath, path):
+        "Download a file."
+        logging.error("Upload is not yet implemented!")
+        return False
+
+    def upload(self, localpath, path=None):
+        "Upload a file or a folder tree."
+        if path is None:
+            if localpath.startswith(self._getLocalRoot()):
+                path = localpath[len(self._getLocalRoot()):]
+            else:
+                path = '/'
+        self._folder_count = 1
+        self._num_folders = self.getNumLocalFolders(path)
+        self._file_count = 1
+        self._num_files = self.getNumLocalFiles(path)
+        if not self._verbose and not self._debug:
+            if self._num_folders + self._num_files > 2:
+                self._bar = progressbar.ProgressBar(width=80)
+        self._upload(localpath, path)
         self._folder_count = 0
         self._file_count = 0
         

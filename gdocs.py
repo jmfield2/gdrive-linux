@@ -171,6 +171,7 @@ class DocsSession(object):
                         self._config[section][option] = exclist
                     else:
                         self._config[section][option] = config.get(section, option)
+                    logging.debug("Configuration: section:%s option:%s value:%s" % (section, option, self._config[section][option]))
         else:
             self._defaultConfig()
             self._saveConfig()
@@ -198,6 +199,26 @@ class DocsSession(object):
             f.close()
         else:
             logging.error("Could not write configuration!")
+
+    def _getLocalRoot(self):
+        return self._config["localstore"]["path"]
+
+    def _setLocalRoot(self, path):
+        logging.debug("Setting local root not yet implemented!")
+        #self._config["localstore"]["path"] = path
+        # TODO check for existing tree at new path.
+        # TODO move existing local tree to new path.
+        self._saveConfig()
+
+    def _getExcludes(self):
+        return self._config["general"]["excludes"]
+
+    def _setExcludes(self, exclist):
+        logging.debug("Setting local root not yet implemented!")
+        #self._config["general"]["excludes"] = exclist
+        # TODO check for existing tree at new path.
+        # TODO move existing local tree to new path.
+        self._saveConfig()
 
     def reset(self):
         self._metadata = {}
@@ -420,8 +441,7 @@ class DocsSession(object):
         # Request change feed from the last changestamp. 
         # If no stored changestamp, then start at the beginning.
         changes = self._getChanges(self._metadata["changestamp"])
-        # TODO: will need to actually update the local copy here, not just 
-        # the metadata.
+        # TODO: will need to actually update the local copy here, not just the metadata.
         self._walk(root=path)
         # Now check for changes again, since before we walked.
         changes = self._getChanges(self._metadata["changestamp"])

@@ -178,11 +178,13 @@ class DocsSession(object):
                         parser = csv.reader(config.get(section, option), skipinitialspace=True)
                         for fields in parser:
                             for index, field in enumerate(fields):
+                                if field == '':
+                                    continue
                                 exclist.append(field)
                         self._config[section][option] = exclist
                     else:
                         self._config[section][option] = config.get(section, option)
-                    logging.debug("Configuration: section:%s option:%s value:%s" % (section, option, self._config[section][option]))
+                    logging.debug("Configuration: section=%s option=%s value=%s" % (section, option, self._config[section][option]))
         else:
             self._defaultConfig()
             self._saveConfig()
@@ -475,6 +477,7 @@ class DocsSession(object):
 
     def update(self, path='/'):
         "Update the local tree at the specified path to match the server."
+        logging.debug("Updating %s..." % path)
         # Request change feed from the last changestamp. 
         # If no stored changestamp, then start at the beginning.
         if self._metadata["changestamp"] is None:

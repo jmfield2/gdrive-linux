@@ -99,7 +99,7 @@ class DocsSession(object):
         self._client = None     ## Google Docs API client object.
         
         self._metadata = {}                                 ## Metadata dict.
-        self._metadata["changestamp"] = None                ## Stores the last changestamp, if any.
+        self._metadata["changestamp"] = 0                   ## Stores the last changestamp, if any.
         self._metadata["map"] = {}
         self._metadata["map"]["bypath"] = DirectoryTree()   ## Maps paths to resource IDs.
         self._metadata["map"]["byid"] = {}                  ## Maps resource IDs to paths. 
@@ -129,15 +129,22 @@ class DocsSession(object):
         
         # Save metadata to cache.
         self._save()
+        
+        # Ensure local storage tree is available.
+        self._checkLocalRoot()
 
-    def _getConfigDir(self):
-        "Find (create if necessary) the configuration directory."
+    def _getHomeDir(self):
+        "Get the users home directory."
         home = os.getenv("XDG_CONFIG_HOME") 
         if home == None:
             home = os.getenv("HOME")
             if home == None:
                 sys.exit("Error: user home directory is not defined!")
-        cfgdir = os.path.join(home, _Config.CONFIG_DIR)
+        return home
+
+    def _getConfigDir(self):
+        "Find (create if necessary) the configuration directory."
+        cfgdir = os.path.join(self._getHomeDir(), _Config.CONFIG_DIR)
         if os.path.exists(cfgdir):
             if not os.path.isdir(cfgdir):
                 sys.exit("Error: \"%s\" exists but is not a directory!" % cfgdir)
@@ -225,11 +232,30 @@ class DocsSession(object):
         # TODO move existing local tree to new path.
         self._saveConfig()
 
+    def _checkLocalRoot(self):
+        "Check if the local storage folder exists, if not create it."
+        path = self._getLocalRoot()
+        if path:
+            if not os.path.exists(path):
+                logging.debug("Creating local storage tree at %s" % path)
+                os.mkdir(path)
+                return path
+            if not os.path.isdir(path):
+                # TODO: handle this?
+                logging.error("Local path \"%s\" exists, but is not a folder!" % path)
+                return None
+        else:
+            logging.warn("Local storage path is not specified!")
+        return path
+
     def _getLocalPath(self, path):
         "Return the local path corresponding to the specified remote path."
-        if path.startswith(self._config["localstore"]["path"]):
+        if path.startswith(self._config["localstore"]["path"]) is True:
             return path
         else:
+            if os.path.isabs(path):
+                # Strip the leading slash, otherwise os.path.join throws away any preceding paths in the list.
+                path = path[1:]
             return os.path.join(self._config["localstore"]["path"], path)
 
     def _getExcludes(self):
@@ -247,7 +273,7 @@ class DocsSession(object):
     def reset(self):
         "Reset local cached metadata."
         self._metadata = {}
-        self._metadata["changestamp"] = None
+        self._metadata["changestamp"] = 0
         self._metadata["map"] = {}
         self._metadata["map"]["bypath"] = DirectoryTree()
         self._metadata["map"]["byid"] = {} 
@@ -453,14 +479,15 @@ class DocsSession(object):
                 size = int(self._metadata["map"]["bypath"][path]["size"])
         return size
 
-    def _getChanges(self, changestamp=None):
+    def _getChanges(self, changestamp=0):
         "Get a list of resource IDs that have changed since the specified changestamp."
-        logging.debug("Getting changes, changestamp=%s..." % changestamp)
         changes = []
         resource_ids = []
-        if changestamp is None:
+        if changestamp == 0:
+            logging.debug("Getting all changes...")
             feed = self._client.GetChanges(max_results=_Config.MAX_RESULTS)
         else:
+            logging.debug("Getting changes since changestamp=%s..." % changestamp)
             feed = self._client.GetChanges(changestamp=str(changestamp), max_results=_Config.MAX_RESULTS)
         if feed:
             changes.extend(feed.entry)
@@ -468,8 +495,8 @@ class DocsSession(object):
             feed = self._client.GetNext(feed)
             changes.extend(feed.entry)
         if len(changes) > 0:
-            self._metadata["changestamp"] = changes[-1].changestamp.value
-            logging.debug("Got %d changes, last changestamp is %s" % (len(changes), self._metadata["changestamp"]))
+            self._metadata["changestamp"] = int(changes[-1].changestamp.value)
+            logging.debug("Got %d changes, last changestamp is %d" % (len(changes), self._metadata["changestamp"]))
             for change in changes:
                 resource_ids.append(change.resource_id.text)
             logging.debug("Changed resources: %s" % resource_ids)
@@ -480,9 +507,9 @@ class DocsSession(object):
         logging.debug("Updating %s..." % path)
         # Request change feed from the last changestamp. 
         # If no stored changestamp, then start at the beginning.
-        if self._metadata["changestamp"] is None:
+        if self._metadata["changestamp"] == 0:
             # Download path first.
-            self.download(path, self._getLocalPath(path))
+            self.download(path, self._getLocalPath(path), overwrite=True)
         resource_ids = self._getChanges(self._metadata["changestamp"])
         # TODO: will need to actually update the local copy here, not just the metadata.
         self._walk(root=path)
@@ -497,7 +524,7 @@ class DocsSession(object):
             logging.error("Not implemented!")
         self._save()
 
-    def _checkLocalFile(self, path):
+    def _checkLocalFile(self, path, overwrite=False):
         "Check if the specified file already exists, if so prompt for overwrite."
         # TODO Eventually, allow overwrites to be controlled by a config setting.
         # For now, play safe.
@@ -507,14 +534,15 @@ class DocsSession(object):
             # TODO: handle this?
             logging.error("Local path \"%s\" exists, but is not a file!" % path)
             return True
-        answer = raw_input("Local file \"%s\" already exists, overwrite? (y/N):")
-        if answer.upper() != 'Y':
-            return True
+        if not overwrite:
+            answer = raw_input("Local file \"%s\" already exists, overwrite? (y/N):")
+            if answer.upper() != 'Y':
+                return True
         logging.debug("Removing \"%s\"..." % path)
         os.remove(path)
         return False
         
-    def _checkLocalFolder(self, path):
+    def _checkLocalFolder(self, path, overwrite=False):
         "Check if the specified folder already exists, if so prompt for overwrite."
         # TODO Eventually, allow overwrites to be controlled by a config setting.
         # For now, play safe.
@@ -525,12 +553,13 @@ class DocsSession(object):
             # TODO: handle this?
             logging.error("Local path \"%s\" exists, but is not a folder!" % path)
             return True
-        answer = raw_input("Local folder \"%s\" already exists, overwrite? (y/N):")
-        if answer.upper() != 'Y':
-            return True
-        logging.debug("Removing \"%s\"..." % path)
-        shutil.rmtree(path)
-        os.mkdir(path)
+        if not overwrite:
+            answer = raw_input("Local folder \"%s\" already exists, overwrite? (y/N):")
+            if answer.upper() != 'Y':
+                return True
+            logging.debug("Removing \"%s\"..." % path)
+            shutil.rmtree(path)
+            os.mkdir(path)
         return False
 
     def getNumResources(self, path=None):
@@ -542,6 +571,14 @@ class DocsSession(object):
         count = 0
         for value in self._metadata["map"]["bypath"].itervalues(path):
             if value["type"] == "folder":
+                count += 1
+        return count
+        
+    def getNumRemoteFiles(self, path=None):
+        "Returns the total number of files in the specified remote path, and all subtrees."
+        count = 0
+        for value in self._metadata["map"]["bypath"].itervalues(path):
+            if value["type"] != "folder":
                 count += 1
         return count
         
@@ -559,7 +596,7 @@ class DocsSession(object):
             count += len(files)
         return count
 
-    def _download(self, path, localpath):
+    def _download(self, path, localpath, overwrite=False):
         "Download a file."
         res_id = self._pathToResourceId(path)
         entry = self._client.GetResourceById(res_id)
@@ -567,7 +604,7 @@ class DocsSession(object):
             logging.error("Failed to download path \"%s\"" % path)
             return False
         if self.isFolder(path):
-            if self._checkLocalFolder(localpath):
+            if self._checkLocalFolder(localpath, overwrite=overwrite):
                 logging.error("Cannot overwrite local path \"%s\", exiting!" % localpath)
                 return 
             logging.info("Downloading folder %s (%d of %d)..." % (localpath, self._folder_count, self._num_folders))
@@ -584,12 +621,12 @@ class DocsSession(object):
             logging.info("Downloading file %s (%d bytes) (%d of %d)..." % (localpath, self.getFileSize(path), self._file_count, self._num_files))
             if self._bar:
                 self._bar.render(self._file_count * 100 / self._num_files, localpath)
-            if self._checkLocalFile(localpath):
+            if self._checkLocalFile(localpath, overwrite=overwrite):
                 return False
             self._client.DownloadResource(entry, localpath)
         return True
 
-    def download(self, path, localpath=None):
+    def download(self, path, localpath=None, overwrite=False):
         "Download a file or a folder tree."
         self._folder_count = 1
         self._num_folders = self.getNumRemoteFolders(path)
@@ -600,7 +637,7 @@ class DocsSession(object):
                 self._bar = progressbar.ProgressBar(width=80)
         if localpath is None:
             localpath = os.path.join(self._getLocalRoot(), path)
-        self._download(path, localpath)
+        self._download(path, localpath, overwrite=overwrite)
         self._folder_count = 0
         self._file_count = 0
         

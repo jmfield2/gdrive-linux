@@ -146,24 +146,44 @@ This command will create a local copy of the specified folder tree, or if it exi
     sys.exit("Not implemented!")
 
 @command
+@alias("get")
 def download(argv):
     """Download a file or folder.
-gdrive download <path>
+gdrive download [<path> [<localpath>]]
 
 Download the contents of the specified path, recursively. If no path is specified, then the entire GDrive will be downloaded.
-This command will create a local copy of the specified file or folder tree, or if it exists already, will update it to match the server 
-contents.
+This command will create a local copy of the specified file or folder tree, or if it exists already, will update it to match 
+the server contents. If a local path is specified, then the file or folder will be downloaded at that path. If no localpath 
+is specified, then the "localstore"/"path" configuration option will be used. 
 """
+    localpath = None
     if len(argv) == 0:
         path = '/'
-        localpath = os.path.join(os.getcwd(), 'gdrive')
     else:
         path = argv[0]
-        if len(argv) == 1:
-            localpath = os.path.join(os.getcwd(), os.path.basename(path))
-        else:
+        if len(argv) > 1:
             localpath = argv[1]
     session.download(path, localpath)
+
+@command
+@alias("put")
+def upload(argv):
+    """Upload a file or folder.
+gdrive upload <localpath> [<path>]
+
+Upload the contents of the specified path, recursively. A local path must be specified.
+This command will create a server copy of the specified file or folder tree, or if it exists already on the server, will update 
+it to match the local contents. If a remote path is specified, then the file or folder will be uploaded at that path relative to 
+the root of the server tree.  
+"""
+    path = None
+    if len(argv) == 0:
+        return usage()
+    else:
+        localpath = argv[0]
+        if len(argv) > 1:
+            path = argv[1]
+    session.upload(localpath, path)
 
 @command
 def reset(argv):
@@ -203,12 +223,6 @@ def main(argv):
     "Main function."
 
     (opts, args) = _parseArgs()
-    if opts.debug:
-        logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
-    elif opts.verbose:
-        logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
-    else:
-        logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.WARNING)
 
     cmdfound = False
     i = 0
@@ -222,7 +236,7 @@ def main(argv):
         return None
 
     global session
-    session = gdocs.DocsSession()
+    session = gdocs.DocsSession(verbose=opts.verbose, debug=opts.debug)
     if session == None:
         sys.exit("Error, could not create Google Docs session!")
 

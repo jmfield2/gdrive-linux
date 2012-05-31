@@ -495,11 +495,11 @@ class DocsSession(object):
             feed = self._client.GetNext(feed)
             changes.extend(feed.entry)
         if len(changes) > 0:
-            self._metadata["changestamp"] = int(changes[-1].changestamp.value)
+            # Save a changestamp of one beyond the last.
+            self._metadata["changestamp"] = int(changes[-1].changestamp.value) + 1
             logging.debug("Got %d changes, last changestamp is %d" % (len(changes), self._metadata["changestamp"]))
             for change in changes:
                 resource_ids.append(change.resource_id.text)
-            logging.debug("Changed resources: %s" % resource_ids)
         return resource_ids
 
     def update(self, path='/'):

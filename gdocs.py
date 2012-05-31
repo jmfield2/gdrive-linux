@@ -88,7 +88,7 @@ class DocsSession(object):
         self._client = None     ## Google Docs API client object.
         
         self._metadata = {}                                 ## Metadata dict.
-        self._metadata["changestamp"] = 0                   ## Stores the last changestamp.
+        self._metadata["changestamp"] = None                ## Stores the last changestamp, if any.
         self._metadata["map"] = {}
         self._metadata["map"]["bypath"] = DirectoryTree()   ## Maps paths to resource IDs.
         self._metadata["map"]["byhash"] = {}                ## Maps resource IDs to paths. 
@@ -201,7 +201,7 @@ class DocsSession(object):
 
     def reset(self):
         self._metadata = {}
-        self._metadata["changestamp"] = 0
+        self._metadata["changestamp"] = None
         self._metadata["map"] = {}
         self._metadata["map"]["bypath"] = DirectoryTree()
         self._metadata["map"]["byhash"] = {} 
@@ -411,20 +411,24 @@ class DocsSession(object):
         while feed and len(feed.entry) == _Config.MAX_RESULTS:
             feed = self._client.GetNext(feed)
             changes.extend(feed.entry)
+        if len(changes) > 0:
+            self._metadata["changestamp"] = changes[-1].changestamp.value
+            logging.debug("Got %d changes, last changestamp is %s" % (len(changes), self._metadata["changestamp"]))
         return changes
 
     def update(self, path='/'):
-        # TODO Request change feed from the last changestamp. 
-        # If no changestamp, then start at TBD.
-        #self._walk(root=path)
-        #self._save()
-        changestamp = None
-        if self._metadata["changestamp"] != 0:
-            changestamp = self._metadata["changestamp"]
-        changes = self._getChanges(changestamp)
+        # Request change feed from the last changestamp. 
+        # If no stored changestamp, then start at the beginning.
+        changes = self._getChanges(self._metadata["changestamp"])
+        # TODO: will need to actually update the local copy here, not just 
+        # the metadata.
+        self._walk(root=path)
+        # Now check for changes again, since before we walked.
+        changes = self._getChanges(self._metadata["changestamp"])
         if len(changes) > 0:
-            self._metadata["changestamp"] = changes[-1].changestamp.value
-            logging.debug("Got %d changes, last changestamp is %d" % (len(changes), self._metadata["changestamp"]))
+            # TODO: will need to actually update the local copy here. 
+            self._walk(root=path)
+        self._save()
 
     def _checkLocalFile(self, path):
         "Check if the specified file already exists, if so prompt for overwrite."

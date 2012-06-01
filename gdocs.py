@@ -357,9 +357,15 @@ class DocsSession(object):
         metadict["upload_sizes"] = {}
         for upload_size in metadata.max_upload_sizes:
             metadict["upload_sizes"][upload_size.kind] = upload_size.text
-        text = str(metadata)
-        print text
+        for child in metadata.children:
+            if child.tag == "largestChangestamp":
+                metadict["changestamp"] = int(child.attributes["value"])
+                break
         return metadict
+
+    def _printresource(self, resource):
+        "Print debugging information about a resource."
+        logging.debug("Resource: id=%s type=%s updated=%s name=%s" % (resource.id.text, resource.content.type, resource.updated.text, resource.title.text))
 
     def _resourceToUri(self, resource):
         "Get the URI for a resource."
@@ -481,16 +487,22 @@ class DocsSession(object):
                 size = int(self._metadata["map"]["bypath"][path]["size"])
         return size
 
+    def _getLargestChangestamp(self):
+        "Returns the largest changestamp."
+        metadict = self.getMetadata()
+        logging.debug("Max changestamp: %d" % metadict["changestamp"])
+        return metadict["changestamp"]
+
     def _getChanges(self, changestamp=0):
         "Get a list of resource IDs that have changed since the specified changestamp."
         changes = []
         resource_ids = []
         if changestamp == 0:
             logging.debug("Getting all changes...")
-            feed = self._client.GetChanges(max_results=_Config.MAX_RESULTS)
+            feed = self._client.GetChanges(max_results=_Config.MAX_RESULTS, show_root=True)
         else:
             logging.debug("Getting changes since changestamp=%s..." % changestamp)
-            feed = self._client.GetChanges(changestamp=str(changestamp), max_results=_Config.MAX_RESULTS)
+            feed = self._client.GetChanges(changestamp=str(changestamp), max_results=_Config.MAX_RESULTS, show_root=True)
         if feed:
             changes.extend(feed.entry)
         while feed and len(feed.entry) == _Config.MAX_RESULTS:
@@ -509,20 +521,50 @@ class DocsSession(object):
         logging.debug("Updating %s..." % path)
         # Request change feed from the last changestamp. 
         # If no stored changestamp, then start at the beginning.
+        self._metadata["changestamp"] = 203713
         if self._metadata["changestamp"] == 0:
-            # Download path first.
+            #self._metadata["changestamp"] = self._getLargestChangestamp() + 1
+            self._walk(root=path)
             self.download(path, self._getLocalPath(path), overwrite=True)
-        resource_ids = self._getChanges(self._metadata["changestamp"])
-        # TODO: will need to actually update the local copy here, not just the metadata.
-        self._walk(root=path)
         # Now check for changes again, since before we walked.
         resource_ids = self._getChanges(self._metadata["changestamp"])
         if len(resource_ids) > 0:
-            # TODO: will need to actually update the local copy here. 
-            #self._walk(root=path)
-            # TODO: iterate over the changes, downloading each resource.
+            # Iterate over the changes, downloading each resource.
             for res_id in resource_ids:
-                logging.debug("TODO: get resource %s (%s)" % (res_id, self._resourceIdToPath(res_id)))
+                res_path = self._resourceIdToPath(res_id) 
+                if res_path == None:
+                    logging.debug("No local path for resource ID %s" % res_id)
+                    # The resource is not in our cache.
+                    resource = self._client.GetResourceById(res_id, show_root=True)
+                    if not resource:
+                        # TODO: This should never fail.
+                        logging.error("Failed to get resource \"%s\"" % res_id)
+                        break
+                    self._printresource(resource)
+                    # Repeatedly get the parent until we find one in our cache, or else reach the root, 
+                    # which should always exist. If it has no parent, and is not in root, then it must 
+                    # be shared. 
+                    # TODO: support shared resources somehow.
+                    parents = resource.InCollections()
+                    for parent in parents:
+                        parent_resid = parent.resource_id.text
+                        logging.debug("Parent resource ID %s" % parent_resid)
+                        parent_resids = [parent_resid]
+                        while parent_resid not in self._metadata["map"]["byid"]:
+                            logging.debug("Parent resource ID %s not in cache" % parent_resid)
+                            parent = parent.InCollections()
+                            parent_resid = parent.resource_id.text
+                            parent_resids.insert(0, parent_resid)
+                        logging.debug("Found parent resource ID %s in cache" % parent_resid)
+                        top_path = self._resourceIdToPath(parent_resid)
+                        logging.debug("Found parent path %s in cache" % top_path)
+                        self._walk(top_path)
+                    res_path = self._resourceIdToPath(res_id)
+                    if res_path == None:
+                        logging.warn("No parent path found, must be a shared resource, skipping...")
+                        continue
+                logging.debug("TODO: get resource %s (%s)" % (res_id, res_path))
+                # TODO: Download the top_path subtree here? 
             logging.error("Not implemented!")
         self._save()
 

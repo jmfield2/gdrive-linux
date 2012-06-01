@@ -564,8 +564,8 @@ class DocsSession(object):
                         logging.warn("No parent path found, must be a shared resource, skipping...")
                         continue
                 logging.debug("TODO: get resource %s (%s)" % (res_id, res_path))
-                # TODO: Download the top_path subtree here? 
-            logging.error("Not implemented!")
+                # Download the top_path subtree here. 
+                self.download(top_path, self._getLocalPath(top_path), overwrite=True)
         self._save()
 
     def _checkLocalFile(self, path, overwrite=False):

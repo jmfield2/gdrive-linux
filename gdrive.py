@@ -195,6 +195,15 @@ This command clears cached GDrive metadata and recreates it by querying the serv
     session.reset()
 
 @command
+def dump(argv):
+    """Dump GDrive cached metadata.
+gdrive dump
+
+This command dumps cached GDrive metadata.
+"""
+    session.dump()
+
+@command
 def info(argv):
     """Print general information.
 gdrive info

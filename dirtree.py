@@ -141,6 +141,13 @@ class DirectoryTree(DictMixin, object):
     def __repr__(self):
         return '%s({%s})' % (self.__class__.__name__, ', '.join('%r: %r' % t for t in self.iteritems()))
 
+    def __str__(self):
+        lines = ["{"]
+        for key, value in self.iteritems():
+            lines.append("%s: %s" % (key, value))
+        lines.append("}")
+        return '\n'.join(lines)
+
     def _find(self, key):
         node = self._root
         for part in key.split('/'):

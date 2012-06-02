@@ -521,7 +521,6 @@ class DocsSession(object):
         logging.debug("Updating %s..." % path)
         # Request change feed from the last changestamp. 
         # If no stored changestamp, then start at the beginning.
-        self._metadata["changestamp"] = 203713
         if self._metadata["changestamp"] == 0:
             #self._metadata["changestamp"] = self._getLargestChangestamp() + 1
             self._walk(root=path)
@@ -565,7 +564,7 @@ class DocsSession(object):
                         continue
                 logging.debug("TODO: get resource %s (%s)" % (res_id, res_path))
                 # Download the top_path subtree here. 
-                self.download(top_path, self._getLocalPath(top_path), overwrite=True)
+                #self.download(top_path, self._getLocalPath(top_path), overwrite=True)
         self._save()
 
     def _checkLocalFile(self, path, overwrite=False):
@@ -713,3 +712,7 @@ class DocsSession(object):
         userdata = self.getMetadata()
         userdata["Total resources"] = self.getNumResources()
         return userdata
+
+    def dump(self):
+        "Dump metadata."
+        pprint.pprint(self._metadata, indent=2)

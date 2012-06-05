@@ -21,6 +21,7 @@ import optparse
 import pprint
 
 import gdocs
+import gdrived
 
 session = None
 commands = {}
@@ -84,7 +85,8 @@ gdrive start
 Starts the GDrive daemon, gdrived, if it is not already running.
 
 """
-    sys.exit("Not implemented!")
+    daemon = gdrived.GDriveDaemon()
+    daemon.start()
 
 @command
 def stop(argv):
@@ -94,7 +96,19 @@ gdrive stop
 Stops the GDrive daemon, gdrived, if it is running.
 
 """
-    sys.exit("Not implemented!")
+    daemon = gdrived.GDriveDaemon()
+    daemon.stop()
+
+@command
+def restart(argv):
+    """Restart GDrive daemon.
+gdrive restart
+
+Restarts the GDrive daemon, gdrived.
+
+"""
+    daemon = gdrived.GDriveDaemon()
+    daemon.restart()
 
 @command
 @alias("ls")

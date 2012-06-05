@@ -21,7 +21,7 @@ import optparse
 import pprint
 
 import gdocs
-import gdrived
+from drived import DriveDaemon
 
 session = None
 commands = {}
@@ -85,7 +85,7 @@ gdrive start
 Starts the GDrive daemon, gdrived, if it is not already running.
 
 """
-    daemon = gdrived.GDriveDaemon()
+    daemon = DriveDaemon()
     daemon.start()
 
 @command
@@ -96,7 +96,7 @@ gdrive stop
 Stops the GDrive daemon, gdrived, if it is running.
 
 """
-    daemon = gdrived.GDriveDaemon()
+    daemon = DriveDaemon()
     daemon.stop()
 
 @command
@@ -107,7 +107,7 @@ gdrive restart
 Restarts the GDrive daemon, gdrived.
 
 """
-    daemon = gdrived.GDriveDaemon()
+    daemon = DriveDaemon()
     daemon.restart()
 
 @command

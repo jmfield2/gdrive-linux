@@ -24,7 +24,7 @@ import ConfigParser
 
 class DriveConfig(object):
     
-    # OAuth 2.0 configuration.
+    # OAuth 2.0 configuration data.
     APP_NAME = "GDrive-Sync-v1"
     CLIENT_ID = '601991085534.apps.googleusercontent.com'
     CLIENT_SECRET = 'HEGv8uk4mXZ41nLmOlGMbGGu'
@@ -35,18 +35,12 @@ class DriveConfig(object):
               "https://docs.googleusercontent.com/", 
               "https://spreadsheets.google.com/feeds/"]
     USER_AGENT = 'gdrive-sync/1.0'
-
-    # Configuration directory.
-    CONFIG_DIR = '.config/%s' % CLIENT_ID
-    # Token blob file name.
-    TOKEN_FILE = 'token.txt' 
-    # Metadata file name.
-    METADATA_FILE = 'metadata.dat'
-    # Configuration file name.
-    CONFIG_FILE = 'gdrive.cfg'
-
-    # Maximum results to return per request.
-    MAX_RESULTS = 500
+    
+    CONFIG_DIR = '.config/%s' % CLIENT_ID   # Configuration directory.
+    TOKEN_FILE = 'token.txt'                # Token blob file name. 
+    METADATA_FILE = 'metadata.dat'          # Metadata file name.
+    CONFIG_FILE = 'gdrive.cfg'              # Configuration file name.
+    MAX_RESULTS = 500                       # Maximum results to return per request.
     
     # URI to get the root feed. 
     ROOT_FEED_URI = "/feeds/default/private/full/folder%3Aroot/contents"
@@ -63,7 +57,7 @@ class DriveConfig(object):
             "excludes": ""      # A comma-delimited list of strings specifying paths to be ignored.
         },
         "logging": {
-            "level": "NONE"    # Sets the log-level (NONE, DEBUG, INFO, WARN, ERROR).
+            "level": "NONE"     # Sets the log-level (NONE, DEBUG, INFO, WARN, ERROR).
         }             
     }
 

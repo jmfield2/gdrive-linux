@@ -70,17 +70,17 @@ class DriveConfig(object):
     def __init__(self, verbose=False, debug=False):
         "Class constructor."
         
-        self._debug = debug
         self._verbose = verbose
+        self._debug = debug
         self._config = {}       ## Configuration dict.
         self._logger = None
         
         # Load configuration (if any), or initialise to default.
         self.loadConfig()
-        if self.getLogLevel() == "INFO":
-            verbose = True
-        if self.getLogLevel() == "DEBUG":
-            debug = True
+        #if self.getLogLevel() == "INFO":
+        #    verbose = True
+        #if self.getLogLevel() == "DEBUG":
+        #    debug = True
         
         if verbose or debug:
             if debug:
@@ -90,6 +90,9 @@ class DriveConfig(object):
             handler = logging.StreamHandler(sys.stdout)
             handler.setFormatter(formatter)
             self._logger = logging.getLogger()
+            if self._logger.handlers:
+                for handler in self._logger.handlers:
+                    self._logger.removeHandler(handler)
             self._logger.addHandler(handler)
             if debug:
                 self._logger.setLevel(logging.DEBUG)

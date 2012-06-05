@@ -69,13 +69,6 @@ class DriveConfig(object):
         self._config = {}       ## Configuration dict.
         self._logger = None
         
-        # Load configuration (if any), or initialise to default.
-        self.loadConfig()
-        #if self.getLogLevel() == "INFO":
-        #    verbose = True
-        #if self.getLogLevel() == "DEBUG":
-        #    debug = True
-        
         if verbose or debug:
             if debug:
                 formatter = logging.Formatter('%(levelname)-7s %(filename)-16s %(lineno)-5d %(funcName)-16s  %(message)s')
@@ -95,6 +88,9 @@ class DriveConfig(object):
         else:
             logging.basicConfig(format='%(levelname)-7s %(message)s', level=logging.WARNING)
 
+        # Load configuration (if any), or initialise to default.
+        self.loadConfig()
+        
     def getHomeDir(self):
         "Get the users home directory."
         home = os.getenv("XDG_CONFIG_HOME") 

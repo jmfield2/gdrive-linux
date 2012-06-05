@@ -28,16 +28,19 @@ from signal import SIGTERM
 # See http://www.erlenstar.demon.co.uk/unix/faq_2.html#SEC16
 # for details on the daemonisation process.
 
-class Daemon:
+class Daemon(object):
     "A generic daemon class."
     
-    def __init__(self, pidfile, loglevel=None, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
-        self._stdin = stdin
-        self._stdout = stdout
-        self._stderr = stderr
+    def __init__(self, pidfile, loglevel=None, stdout='/dev/null'):
         self._pidfile = pidfile
         self._loglevel = loglevel
+        self._stdout = stdout
 
+        self._stdin = '/dev/null'
+        self._stderr = stdout
+
+        self._logger = None
+        
         if loglevel:
             if loglevel == logging.DEBUG:
                 formatter = logging.Formatter('%(levelname)-7s %(filename)-16s %(lineno)-5d %(funcName)-16s  %(message)s')
@@ -45,12 +48,12 @@ class Daemon:
                 formatter = logging.Formatter('%(levelname)-7s %(message)s')
             handler = logging.StreamHandler(stdout)
             handler.setFormatter(formatter)
-            logger = logging.getLogger()
-            logger.addHandler(handler)
+            self._logger = logging.getLogger()
+            self._logger.addHandler(handler)
             if loglevel == logging.DEBUG:
-                logger.setLevel(logging.DEBUG)
+                self._logger.setLevel(logging.DEBUG)
             else:
-                logger.setLevel(logging.INFO)
+                self._logger.setLevel(logging.INFO)
         else:
             logging.basicConfig(format='%(levelname)-7s %(message)s', level=logging.WARNING)
 
@@ -169,4 +172,3 @@ class Daemon:
         # It will be called after the process has been
         # daemonized by start() or restart().
         logging.error("This method should never execute, it must be overridden!")
-

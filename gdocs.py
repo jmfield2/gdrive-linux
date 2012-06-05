@@ -258,7 +258,7 @@ class DocsSession(object):
             if os.path.isabs(path):
                 # Strip the leading slash, otherwise os.path.join throws away any preceding paths in the list.
                 path = path[1:]
-            return os.path.join(self._config["localstore"]["path"], path)
+            return os.path.join(self._getLocalRoot(), path)
 
     def _getExcludes(self):
         "Get the list of folders/files to be excluded."
@@ -612,7 +612,7 @@ class DocsSession(object):
             logging.error("Local path \"%s\" exists, but is not a folder!" % path)
             return True
         if not overwrite:
-            answer = raw_input("Local folder \"%s\" already exists, overwrite? (y/N):")
+            answer = raw_input("Local folder \"%s\" already exists, overwrite? (y/N):" % path)
             if answer.upper() != 'Y':
                 return True
             logging.debug("Removing \"%s\"..." % path)
@@ -694,7 +694,12 @@ class DocsSession(object):
             if self._num_folders + self._num_files > 2:
                 self._bar = progressbar.ProgressBar(width=80)
         if localpath is None:
-            localpath = os.path.join(self._getLocalRoot(), path)
+            localpath = self._getLocalPath(path)
+            logging.debug("Using local path %s" % localpath)
+        for exclude in self._getExcludes():
+            if path == '/' + exclude:
+                logging.debug("Skipping folder on exclude list")
+                return
         self._download(path, localpath, overwrite=overwrite)
         self._folder_count = 0
         self._file_count = 0

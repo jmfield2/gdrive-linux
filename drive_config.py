@@ -283,3 +283,5 @@ class DriveConfig(object):
             os.mkdir(path)
         return False
 
+    def getLogger(self):
+        return self._logger

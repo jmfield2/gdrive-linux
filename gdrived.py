@@ -19,8 +19,28 @@ import time
 
 import daemon
 
-class GDriveDaemon(daemon.Daemon):
+UPDATE_INTERVAL = 30    # Sync update interval in seconds.
+
+class GDriveDaemon(daemon.Daemon, object):
+    
+    def __init__(self):
+        "Class constructor."
+        
+        # Use pidfile in Gdrive config directory.
+        pidfile = None
+        
+        # Use loglevel from GDrive config.
+        loglevel = None
+
+        # Use logfile in GDrive config directory.
+        stdout = None
+        
+        super(GDriveDaemon, self).__init__(pidfile, loglevel, stdout)
+
     def run(self):
+        "Run the daemon."
+    
         while True:
-            time.sleep(1)
+
+            time.sleep(UPDATE_INTERVAL)
 

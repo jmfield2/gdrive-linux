@@ -19,14 +19,14 @@
 import sys
 import curses
 
-CONTROLS = {
+_CONTROLS = {
     'BOL':          'cr', 
     'UP':           'cuu1', 
     'CLEAR_EOL':    'el', 
     'NORMAL':       'sgr0',
 }
 
-VALUES = {
+_VALUES = {
     'COLUMNS':      'cols',
     'LINES':        'lines',
     'MAX_COLORS':   'colors',
@@ -53,14 +53,14 @@ class ProgressBar(object):
         self._bgcolour = curses.tparm(bgColorSeq, colorIndex)
 
         self._control = {}
-        for control in CONTROLS:
+        for control in _CONTROLS:
             # Set the control escape sequence
-            self._control[control] = curses.tigetstr(CONTROLS[control]) or ''
+            self._control[control] = curses.tigetstr(_CONTROLS[control]) or ''
 
         self._value = {}
-        for value in VALUES:
+        for value in _VALUES:
             # Set terminal related values
-            self._value[value] = curses.tigetnum(VALUES[value])
+            self._value[value] = curses.tigetnum(_VALUES[value])
 
         if width and width < self._value["COLUMNS"] - self._PADDING:
             self._width = width

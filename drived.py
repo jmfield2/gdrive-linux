@@ -23,21 +23,16 @@ class DriveDaemon(daemon.Daemon, object):
     
     def __init__(self):
         "Class constructor."
-        
         # Use pidfile in Gdrive config directory.
         pidfile = None
-        
         # Use loglevel from GDrive config.
         loglevel = None
-
         # Use logfile in GDrive config directory.
         stdout = None
-        
         super(DriveDaemon, self).__init__(pidfile, loglevel, stdout)
 
     def run(self):
         "Run the daemon."
-    
         while True:
             # TODO: Add sync logic.
             # TODO: How do we detect that a sync is ongoing, and skip?

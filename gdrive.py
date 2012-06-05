@@ -257,7 +257,7 @@ def main(argv):
         return None
 
     global session
-    session = gdocs.DocsSession(verbose=opts.verbose, debug=opts.debug)
+    session = gdocs.Session(verbose=opts.verbose, debug=opts.debug)
     if session == None:
         sys.exit("Error, could not create Google Docs session!")
 

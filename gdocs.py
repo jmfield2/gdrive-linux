@@ -28,7 +28,7 @@ from dirtree import DirectoryTree
 import progressbar
 
 
-class DocsSession(object):
+class Session(object):
     
     def __init__(self, verbose=False, debug=False):
         "Class constructor."

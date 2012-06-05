@@ -38,7 +38,7 @@ class Drive(object):
 
     def __init__(self):
         "Class constructor."
-        self._session = gdocs.DocsSession()
+        self._session = gdocs.Session()
         self._root = {'/': self._readDir('/')}
 
     def _readDir(self, dirname):
@@ -87,7 +87,7 @@ class GDriveFs(Fuse):
         self._uid = os.getuid()
         self._gid = os.getgid()
         #self._drive = Drive()
-        self._session = gdocs.DocsSession(verbose=True, debug=True)
+        self._session = gdocs.Session(verbose=True, debug=True)
 
     def getattr(self, path):
         "Get path attributes."

@@ -593,7 +593,7 @@ class DocsSession(object):
             logging.error("Local path \"%s\" exists, but is not a file!" % path)
             return True
         if not overwrite:
-            answer = raw_input("Local file \"%s\" already exists, overwrite? (y/N):")
+            answer = raw_input("Local file \"%s\" already exists, overwrite? (y/N):" % path)
             if answer.upper() != 'Y':
                 return True
         logging.debug("Removing \"%s\"..." % path)

@@ -57,10 +57,12 @@ class _Config(object):
     # Maximum results to return per request.
     MAX_RESULTS = 500
     
-    # URI to get the root feed. Can also be used to check if a resource is in the 
-    # root collection, i.e. its parent is this.
+    # URI to get the root feed. 
     ROOT_FEED_URI = "/feeds/default/private/full/folder%3Aroot/contents"
 
+    # The href of the root folder. If a resource parent is this, then it lives in the root folder.
+    ROOT_FOLDER_HREF = "https://docs.google.com/feeds/default/private/full/folder%3Aroot"
+    
     # Default configuration values, for user-configurable options. 
     CONFIG_DEFAULTS = { 
         "localstore": { 
@@ -514,6 +516,8 @@ class DocsSession(object):
             logging.debug("Got %d changes, last changestamp is %d" % (len(changes), self._metadata["changestamp"]))
             for change in changes:
                 resource_ids.append(change.resource_id.text)
+        else:
+            logging.debug("No changes found")
         return resource_ids
 
     def update(self, path='/'):
@@ -546,25 +550,36 @@ class DocsSession(object):
                     # TODO: support shared resources somehow.
                     parents = resource.InCollections()
                     for parent in parents:
-                        parent_resid = parent.resource_id.text
-                        logging.debug("Parent resource ID %s" % parent_resid)
-                        parent_resids = [parent_resid]
-                        while parent_resid not in self._metadata["map"]["byid"]:
-                            logging.debug("Parent resource ID %s not in cache" % parent_resid)
-                            parent = parent.InCollections()
-                            parent_resid = parent.resource_id.text
-                            parent_resids.insert(0, parent_resid)
-                        logging.debug("Found parent resource ID %s in cache" % parent_resid)
-                        top_path = self._resourceIdToPath(parent_resid)
-                        logging.debug("Found parent path %s in cache" % top_path)
+                        logging.debug("parent: %s" % parent.href)
+                        if parent.href == _Config.ROOT_FOLDER_HREF:
+                            logging.debug("Parent is root folder")
+                            top_path = '/'
+                        else:
+                            parent_resource = self._client.GetResourceBySelfLink(parent.href, show_root=True)
+                            parent_resid = parent_resource.resource_id.text
+                            logging.debug("Parent resource ID %s" % parent_resid)
+                            parent_resids = [parent_resid]
+                            while parent_resid not in self._metadata["map"]["byid"]:
+                                logging.debug("Parent resource ID %s not in cache" % parent_resid)
+                                parent = parent.InCollections()
+                                parent_resource = self._client.GetResourceBySelfLink(parent.href, show_root=True)
+                                parent_resid = parent_resource.resource_id.text
+                                parent_resids.insert(0, parent_resid)
+                            top_path = self._resourceIdToPath(parent_resid)
+                            logging.debug("Found parent path %s in cache for resource ID %s" % (top_path, parent_resid))
                         self._walk(top_path)
+                        # Download the top_path subtree here. 
+                        #self.download(top_path, self._getLocalPath(top_path), overwrite=True)
                     res_path = self._resourceIdToPath(res_id)
                     if res_path == None:
                         logging.warn("No parent path found, must be a shared resource, skipping...")
                         continue
-                logging.debug("TODO: get resource %s (%s)" % (res_id, res_path))
-                # Download the top_path subtree here. 
-                #self.download(top_path, self._getLocalPath(top_path), overwrite=True)
+                # Check if resource path is in the path specified.
+                if res_path.startswith(path):
+                    logging.debug("Get resource %s (%s)" % (res_id, res_path))
+                    self.download(res_path, self._getLocalPath(res_path), overwrite=True)
+                else:
+                    logging.debug("Ignoring change to path %s, not in target path %s" % (res_path, path))
         self._save()
 
     def _checkLocalFile(self, path, overwrite=False):

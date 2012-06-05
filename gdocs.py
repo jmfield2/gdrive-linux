@@ -17,64 +17,16 @@
 import os
 import sys
 import logging
-import shutil
 import pickle
-import ConfigParser
-import csv
 import pprint
 
 import gdata.gauth
 import gdata.docs.client
 
+from drive_config import DriveConfig
 from dirtree import DirectoryTree
 import progressbar
 
-
-class _Config(object):
-    "Class to hold configuration data."
-    
-    # OAuth 2.0 configuration.
-    APP_NAME = "GDrive-Sync-v1"
-    CLIENT_ID = '601991085534.apps.googleusercontent.com'
-    CLIENT_SECRET = 'HEGv8uk4mXZ41nLmOlGMbGGu'
-    REDIRECT_URI = 'urn:ietf:wg:oauth:2.0:oob'
-    SCOPES = ["https://www.googleapis.com/auth/userinfo.email", 
-              "https://www.googleapis.com/auth/userinfo.profile", 
-              "https://docs.google.com/feeds/", 
-              "https://docs.googleusercontent.com/", 
-              "https://spreadsheets.google.com/feeds/"]
-    USER_AGENT = 'gdrive-sync/1.0'
-
-    # Configuration directory.
-    CONFIG_DIR = '.config/%s' % CLIENT_ID
-    # Token blob file name.
-    TOKEN_FILE = 'token.txt' 
-    # Metadata file name.
-    METADATA_FILE = 'metadata.dat'
-    # Configuration file name.
-    CONFIG_FILE = 'gdrive.cfg'
-
-    # Maximum results to return per request.
-    MAX_RESULTS = 500
-    
-    # URI to get the root feed. 
-    ROOT_FEED_URI = "/feeds/default/private/full/folder%3Aroot/contents"
-
-    # The href of the root folder. If a resource parent is this, then it lives in the root folder.
-    ROOT_FOLDER_HREF = "https://docs.google.com/feeds/default/private/full/folder%3Aroot"
-    
-    # Default configuration values, for user-configurable options. 
-    CONFIG_DEFAULTS = { 
-        "localstore": { 
-            "path": ""          # The path to the root of the local copy of the folder tree.
-        }, 
-        "general": { 
-            "excludes": ""      # A comma-delimited list of strings specifying paths to be ignored.
-        },
-        "logging": {
-            "level": "NONE"    # Sets the log-level (NONE, DEBUG, INFO, WARN, ERROR).
-        }             
-    }
 
 class DocsSession(object):
     
@@ -82,32 +34,8 @@ class DocsSession(object):
         "Class constructor."
         self._debug = debug
         self._verbose = verbose
+        self._config = DriveConfig(verbose, debug)
 
-        # Load configuration (if any), or initialise to default.
-        self._loadConfig()
-        if self._getLogLevel() == "INFO":
-            verbose = True
-        if self._getLogLevel() == "DEBUG":
-            debug = True
-        
-        if verbose or debug:
-            if debug:
-                formatter = logging.Formatter('%(levelname)-7s %(filename)-16s %(lineno)-5d %(funcName)-16s  %(message)s')
-            else:
-                formatter = logging.Formatter('%(levelname)-7s %(message)s')
-            handler = logging.StreamHandler(sys.stdout)
-            handler.setFormatter(formatter)
-            logger = logging.getLogger()
-            logger.addHandler(handler)
-            if debug:
-                logger.setLevel(logging.DEBUG)
-            else:
-                logger.setLevel(logging.INFO)
-        else:
-            logging.basicConfig(format='%(levelname)-7s %(message)s', level=logging.WARNING)
-
-        self._config = {}       ## Configuration dict.
-        
         self._token = None      ## OAuth 2,0 token object.
         self._client = None     ## Google Docs API client object.
         
@@ -141,148 +69,7 @@ class DocsSession(object):
         self._save()
         
         # Ensure local storage tree is available.
-        self._checkLocalRoot()
-
-    def _getHomeDir(self):
-        "Get the users home directory."
-        home = os.getenv("XDG_CONFIG_HOME") 
-        if home == None:
-            home = os.getenv("HOME")
-            if home == None:
-                sys.exit("Error: user home directory is not defined!")
-        return home
-
-    def _getConfigDir(self):
-        "Find (create if necessary) the configuration directory."
-        cfgdir = os.path.join(self._getHomeDir(), _Config.CONFIG_DIR)
-        if os.path.exists(cfgdir):
-            if not os.path.isdir(cfgdir):
-                sys.exit("Error: \"%s\" exists but is not a directory!" % cfgdir)
-        else:
-            os.makedirs(cfgdir, 0775)
-        return cfgdir
-
-    def _getConfigFile(self, name):
-        "Get the path to a file in the configuration directory."
-        path = os.path.join(self._getConfigDir(), name)
-        if os.path.exists(path):
-            if not os.path.isfile(path):
-                sys.exit("Error: path \"%s\" exists but is not a file!" % path)
-        return path
-
-    def _defaultConfig(self):
-        logging.debug("Using default configuration...")
-        self._config = _Config.CONFIG_DEFAULTS.copy()
-        
-    def _loadConfig(self):
-        """Load a dictionary of configuration data, from the configuration, 
-           file if it exists, or initialise with default values otherwise."""
-        self._config = {}
-        config = ConfigParser.RawConfigParser()
-        cfgfile = self._getConfigFile(_Config.CONFIG_FILE)
-        if os.path.exists(cfgfile):
-            logging.debug("Reading configuration...")
-            config.read(cfgfile)
-            sections = config.sections()
-            sections.sort()
-            for section in sections:
-                self._config[section] = {}
-                options = config.options(section)
-                for option in options:
-                    if option == "excludes":
-                        exclist = []
-                        # Need to handle the comma-delimited quoted strings.
-                        parser = csv.reader(config.get(section, option), skipinitialspace=True)
-                        for fields in parser:
-                            for index, field in enumerate(fields):
-                                if field == '':
-                                    continue
-                                exclist.append(field)
-                        self._config[section][option] = exclist
-                    else:
-                        self._config[section][option] = config.get(section, option)
-                    logging.debug("Configuration: section=%s option=%s value=%s" % (section, option, self._config[section][option]))
-        else:
-            self._defaultConfig()
-            self._saveConfig()
-
-    def _saveConfig(self):
-        "Save the current configuration data to the configuration file." 
-        config = ConfigParser.RawConfigParser()
-        cfgfile = self._getConfigFile(_Config.CONFIG_FILE)
-        if not self._checkLocalFile(cfgfile):
-            for section in self._config:
-                config.add_section(section)
-                for option in self._config[section]:
-                    if option == "excludes":
-                        if self._config[section][option]:
-                            # Need to handle the comma-delimited quoted strings.
-                            excstr = ', '.join(self._config[section][option])
-                            config.set(section, option, excstr)
-                        else:
-                            config.set(section, option, "")
-                    else:
-                        config.set(section, option, self._config[section][option])
-            logging.debug("Writing configuration...")
-            f = open(cfgfile, 'w')
-            config.write(f)
-            f.close()
-        else:
-            logging.error("Could not write configuration!")
-
-    def _getLocalRoot(self):
-        "Get the path to the root of the local storage tree."
-        return self._config["localstore"]["path"]
-
-    def _setLocalRoot(self, path):
-        "Set the path to the root of the local storage tree."
-        logging.error("Setting local root is not yet implemented!")
-        #self._config["localstore"]["path"] = path
-        # TODO check for existing tree at new path.
-        # TODO move existing local tree to new path.
-        self._saveConfig()
-
-    def _checkLocalRoot(self):
-        "Check if the local storage folder exists, if not create it."
-        path = self._getLocalRoot()
-        if path:
-            if not os.path.exists(path):
-                logging.debug("Creating local storage tree at %s" % path)
-                os.mkdir(path)
-                return path
-            if not os.path.isdir(path):
-                # TODO: handle this?
-                logging.error("Local path \"%s\" exists, but is not a folder!" % path)
-                return None
-        else:
-            logging.warn("Local storage path is not specified!")
-        return path
-
-    def _getLocalPath(self, path):
-        "Return the local path corresponding to the specified remote path."
-        if path.startswith(self._config["localstore"]["path"]) is True:
-            return path
-        else:
-            if os.path.isabs(path):
-                # Strip the leading slash, otherwise os.path.join throws away any preceding paths in the list.
-                path = path[1:]
-            return os.path.join(self._getLocalRoot(), path)
-
-    def _getExcludes(self):
-        "Get the list of folders/files to be excluded."
-        return self._config["general"]["excludes"]
-
-    def _setExcludes(self, exclist):
-        "Set the list of folders/files to be excluded."
-        logging.error("Setting local root is not yet implemented!")
-        #self._config["general"]["excludes"] = exclist
-        # TODO check for existing tree at new path.
-        # TODO move existing local tree to new path.
-        self._saveConfig()
-
-    def _getLogLevel(self):
-        "Get the logging level."
-        return self._config["logging"]["level"]
+        self._config.checkLocalRoot()
 
     def reset(self):
         "Reset local cached metadata."
@@ -304,7 +91,7 @@ class DocsSession(object):
         saved_auth = False
         
         # Try to read saved auth blob.
-        tokenfile = self._getConfigFile(_Config.TOKEN_FILE)
+        tokenfile = self._config.TOKEN_FILE
         if os.path.exists(tokenfile):
             logging.debug("Reading token...")
             f = open(tokenfile, 'r')
@@ -318,20 +105,20 @@ class DocsSession(object):
         # Generate the OAuth 2.0 request token.
         logging.info("Generating the request token...")
         if saved_auth:
-            self._token = gdata.gauth.OAuth2Token(client_id=_Config.CLIENT_ID, 
-                                                  client_secret=_Config.CLIENT_SECRET, 
-                                                  scope=" ".join(_Config.SCOPES), 
-                                                  user_agent=_Config.USER_AGENT, 
+            self._token = gdata.gauth.OAuth2Token(client_id=self._config.CLIENT_ID, 
+                                                  client_secret=self._config.CLIENT_SECRET, 
+                                                  scope=" ".join(self._config.SCOPES), 
+                                                  user_agent=self._config.USER_AGENT,
                                                   refresh_token=self._token.refresh_token)
         else:
-            self._token = gdata.gauth.OAuth2Token(client_id=_Config.CLIENT_ID, 
-                                                  client_secret=_Config.CLIENT_SECRET, 
-                                                  scope=" ".join(_Config.SCOPES), 
-                                                  user_agent=_Config.USER_AGENT)
+            self._token = gdata.gauth.OAuth2Token(client_id=self._config.CLIENT_ID, 
+                                                  client_secret=self._config.CLIENT_SECRET, 
+                                                  scope=" ".join(self._config.SCOPES), 
+                                                  user_agent=self._config.USER_AGENT)
             
             # Authorise the OAuth 2.0 request token.
             print 'Visit the following URL in your browser to authorise this app:'
-            print str(self._token.generate_authorize_url(redirect_url=_Config.REDIRECT_URI))
+            print str(self._token.generate_authorize_url(redirect_url=self._config.REDIRECT_URI))
             print 'After agreeing to authorise the app, copy the verification code from the browser.'
             access_code = raw_input('Please enter the verification code: ')
             
@@ -350,7 +137,7 @@ class DocsSession(object):
         "Setup Google Docs session."
         # Create the Google Documents List API client.
         logging.info("Creating the Docs client...")
-        self._client = gdata.docs.client.DocsClient(source=_Config.APP_NAME)
+        self._client = gdata.docs.client.DocsClient(source=self._config.APP_NAME)
         #client.ssl = True  # Force HTTPS use.
         #client.http_client.debug = True  # Turn on HTTP debugging.
         
@@ -396,7 +183,7 @@ class DocsSession(object):
     def _pathToUri(self, path):
         "Get the URI for a path."
         if path == '/':
-            uri = _Config.ROOT_FEED_URI
+            uri = self._config.ROOT_FEED_URI
         else:
             if path in self._metadata["map"]["bypath"]:
                 uri = self._metadata["map"]["bypath"][path]["uri"]
@@ -461,7 +248,7 @@ class DocsSession(object):
 
     def _load(self):
         "Load metadata from local file, if it exists."
-        metafile = self._getConfigFile(_Config.METADATA_FILE)
+        metafile = self._config.getMetadataFile()()
         if os.path.exists(metafile):
             logging.debug("Reading cached metadata...")
             f = open(metafile, 'rb')
@@ -472,7 +259,7 @@ class DocsSession(object):
     
     def _save(self):
         "Save metadata to local file."
-        metafile = self._getConfigFile(_Config.METADATA_FILE)
+        metafile = self._config.getMetadataFile()()
         logging.debug("Saving metadata...")
         f = open(metafile, 'wb')
         pickle.dump(self._metadata, f)
@@ -513,13 +300,13 @@ class DocsSession(object):
         resource_ids = []
         if changestamp == 0:
             logging.debug("Getting all changes...")
-            feed = self._client.GetChanges(max_results=_Config.MAX_RESULTS, show_root=True)
+            feed = self._client.GetChanges(max_results=self._config.MAX_RESULTS, show_root=True)
         else:
             logging.debug("Getting changes since changestamp=%s..." % changestamp)
-            feed = self._client.GetChanges(changestamp=str(changestamp), max_results=_Config.MAX_RESULTS, show_root=True)
+            feed = self._client.GetChanges(changestamp=str(changestamp), max_results=self._config.MAX_RESULTS, show_root=True)
         if feed:
             changes.extend(feed.entry)
-        while feed and len(feed.entry) == _Config.MAX_RESULTS:
+        while feed and len(feed.entry) == self._config.MAX_RESULTS:
             feed = self._client.GetNext(feed)
             changes.extend(feed.entry)
         if len(changes) > 0:
@@ -540,7 +327,7 @@ class DocsSession(object):
         if self._metadata["changestamp"] == 0:
             #self._metadata["changestamp"] = self._getLargestChangestamp() + 1
             self._walk(root=path)
-            self.download(path, self._getLocalPath(path), overwrite=True)
+            self.download(path, self._config.getLocalPath(path), overwrite=True)
         # Now check for changes again, since before we walked.
         resource_ids = self._getChanges(self._metadata["changestamp"])
         if len(resource_ids) > 0:
@@ -563,7 +350,7 @@ class DocsSession(object):
                     parents = resource.InCollections()
                     for parent in parents:
                         logging.debug("parent: %s" % parent.href)
-                        if parent.href == _Config.ROOT_FOLDER_HREF:
+                        if parent.href == self._config.ROOT_FOLDER_HREF:
                             logging.debug("Parent is root folder")
                             top_path = '/'
                         else:
@@ -589,48 +376,10 @@ class DocsSession(object):
                 # Check if resource path is in the path specified.
                 if res_path.startswith(path):
                     logging.debug("Get resource %s (%s)" % (res_id, res_path))
-                    self.download(res_path, self._getLocalPath(res_path), overwrite=True)
+                    self.download(res_path, self._config.getLocalPath(res_path), overwrite=True)
                 else:
                     logging.debug("Ignoring change to path %s, not in target path %s" % (res_path, path))
         self._save()
-
-    def _checkLocalFile(self, path, overwrite=False):
-        "Check if the specified file already exists, if so prompt for overwrite."
-        # TODO Eventually, allow overwrites to be controlled by a config setting.
-        # For now, play safe.
-        if not os.path.exists(path):
-            return False
-        if not os.path.isfile(path):
-            # TODO: handle this?
-            logging.error("Local path \"%s\" exists, but is not a file!" % path)
-            return True
-        if not overwrite:
-            answer = raw_input("Local file \"%s\" already exists, overwrite? (y/N):" % path)
-            if answer.upper() != 'Y':
-                return True
-        logging.debug("Removing \"%s\"..." % path)
-        os.remove(path)
-        return False
-        
-    def _checkLocalFolder(self, path, overwrite=False):
-        "Check if the specified folder already exists, if so prompt for overwrite."
-        # TODO Eventually, allow overwrites to be controlled by a config setting.
-        # For now, play safe.
-        if not os.path.exists(path):
-            os.mkdir(path)
-            return False
-        if not os.path.isdir(path):
-            # TODO: handle this?
-            logging.error("Local path \"%s\" exists, but is not a folder!" % path)
-            return True
-        if not overwrite:
-            answer = raw_input("Local folder \"%s\" already exists, overwrite? (y/N):" % path)
-            if answer.upper() != 'Y':
-                return True
-            logging.debug("Removing \"%s\"..." % path)
-            shutil.rmtree(path)
-            os.mkdir(path)
-        return False
 
     def getNumResources(self, path=None):
         "Returns the total number of resources (files, folders) in the specified path, and all subtrees."
@@ -674,7 +423,7 @@ class DocsSession(object):
             logging.error("Failed to download path \"%s\"" % path)
             return False
         if self.isFolder(path):
-            if self._checkLocalFolder(localpath, overwrite=overwrite):
+            if self._config.checkLocalFolder(localpath, overwrite=overwrite):
                 logging.error("Cannot overwrite local path \"%s\", exiting!" % localpath)
                 return 
             logging.info("Downloading folder %s (%d of %d)..." % (localpath, self._folder_count, self._num_folders))
@@ -691,7 +440,7 @@ class DocsSession(object):
             logging.info("Downloading file %s (%d bytes) (%d of %d)..." % (localpath, self.getFileSize(path), self._file_count, self._num_files))
             if self._bar:
                 self._bar.render(self._file_count * 100 / self._num_files, localpath)
-            if self._checkLocalFile(localpath, overwrite=overwrite):
+            if self._config.checkLocalFile(localpath, overwrite=overwrite):
                 return False
             self._client.DownloadResource(entry, localpath)
         return True
@@ -706,9 +455,9 @@ class DocsSession(object):
             if self._num_folders + self._num_files > 2:
                 self._bar = progressbar.ProgressBar(width=80)
         if localpath is None:
-            localpath = self._getLocalPath(path)
+            localpath = self._config.getLocalPath(path)
             logging.debug("Using local path %s" % localpath)
-        for exclude in self._getExcludes():
+        for exclude in self._config.getExcludes():
             if path == '/' + exclude:
                 logging.debug("Skipping folder on exclude list")
                 return
@@ -724,8 +473,8 @@ class DocsSession(object):
     def upload(self, localpath, path=None):
         "Upload a file or a folder tree."
         if path is None:
-            if localpath.startswith(self._getLocalRoot()):
-                path = localpath[len(self._getLocalRoot()):]
+            if localpath.startswith(self._config.getLocalRoot()):
+                path = localpath[len(self._config.getLocalRoot()):]
             else:
                 path = '/'
         self._folder_count = 1

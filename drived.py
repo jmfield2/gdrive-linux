@@ -14,9 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys
 import time
-
 import daemon
 
 UPDATE_INTERVAL = 30    # Sync update interval in seconds.
@@ -41,6 +39,6 @@ class DriveDaemon(daemon.Daemon, object):
         "Run the daemon."
     
         while True:
-
+            # TODO: Add sync logic.
+            # TODO: How do we detect that a sync is ongoing, and skip?
             time.sleep(UPDATE_INTERVAL)
-

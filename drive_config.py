@@ -73,6 +73,7 @@ class DriveConfig(object):
         self._debug = debug
         self._verbose = verbose
         self._config = {}       ## Configuration dict.
+        self._logger = None
         
         # Load configuration (if any), or initialise to default.
         self.loadConfig()
@@ -88,12 +89,12 @@ class DriveConfig(object):
                 formatter = logging.Formatter('%(levelname)-7s %(message)s')
             handler = logging.StreamHandler(sys.stdout)
             handler.setFormatter(formatter)
-            logger = logging.getLogger()
-            logger.addHandler(handler)
+            self._logger = logging.getLogger()
+            self._logger.addHandler(handler)
             if debug:
-                logger.setLevel(logging.DEBUG)
+                self._logger.setLevel(logging.DEBUG)
             else:
-                logger.setLevel(logging.INFO)
+                self._logger.setLevel(logging.INFO)
         else:
             logging.basicConfig(format='%(levelname)-7s %(message)s', level=logging.WARNING)
 
@@ -123,6 +124,9 @@ class DriveConfig(object):
             if not os.path.isfile(path):
                 sys.exit("Error: path \"%s\" exists but is not a file!" % path)
         return path
+
+    def getTokenFile(self):
+        return self.getConfigFile(self.TOKEN_FILE)
 
     def getMetadataFile(self):
         return self.getConfigFile(self.METADATA_FILE)

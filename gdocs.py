@@ -91,7 +91,7 @@ class DocsSession(object):
         saved_auth = False
         
         # Try to read saved auth blob.
-        tokenfile = self._config.TOKEN_FILE
+        tokenfile = self._config.getTokenFile()
         if os.path.exists(tokenfile):
             logging.debug("Reading token...")
             f = open(tokenfile, 'r')
@@ -248,7 +248,7 @@ class DocsSession(object):
 
     def _load(self):
         "Load metadata from local file, if it exists."
-        metafile = self._config.getMetadataFile()()
+        metafile = self._config.getMetadataFile()
         if os.path.exists(metafile):
             logging.debug("Reading cached metadata...")
             f = open(metafile, 'rb')
@@ -259,7 +259,7 @@ class DocsSession(object):
     
     def _save(self):
         "Save metadata to local file."
-        metafile = self._config.getMetadataFile()()
+        metafile = self._config.getMetadataFile()
         logging.debug("Saving metadata...")
         f = open(metafile, 'wb')
         pickle.dump(self._metadata, f)

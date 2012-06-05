@@ -66,11 +66,14 @@ class _Config(object):
     # Default configuration values, for user-configurable options. 
     CONFIG_DEFAULTS = { 
         "localstore": { 
-            "path": ""      # The path to the root of the local copy of the folder tree.
+            "path": ""          # The path to the root of the local copy of the folder tree.
         }, 
         "general": { 
-            "excludes": ""  # A comma-delimited list of strings specifying paths to be ignored.
-        }
+            "excludes": ""      # A comma-delimited list of strings specifying paths to be ignored.
+        },
+        "logging": {
+            "level": "NONE"    # Sets the log-level (NONE, DEBUG, INFO, WARN, ERROR).
+        }             
     }
 
 class DocsSession(object):
@@ -79,6 +82,14 @@ class DocsSession(object):
         "Class constructor."
         self._debug = debug
         self._verbose = verbose
+
+        # Load configuration (if any), or initialise to default.
+        self._loadConfig()
+        if self._getLogLevel() == "INFO":
+            verbose = True
+        if self._getLogLevel() == "DEBUG":
+            debug = True
+        
         if verbose or debug:
             if debug:
                 formatter = logging.Formatter('%(levelname)-7s %(filename)-16s %(lineno)-5d %(funcName)-16s  %(message)s')
@@ -110,9 +121,6 @@ class DocsSession(object):
         self._file_count = 0
         self._bar = None
 
-        # Load configuration (if any), or initialise to default.
-        self._loadConfig()
-        
         self._authorise()
         if self._token == None:
             # TODO: throw exception.
@@ -271,6 +279,10 @@ class DocsSession(object):
         # TODO check for existing tree at new path.
         # TODO move existing local tree to new path.
         self._saveConfig()
+
+    def _getLogLevel(self):
+        "Get the logging level."
+        return self._config["logging"]["level"]
 
     def reset(self):
         "Reset local cached metadata."

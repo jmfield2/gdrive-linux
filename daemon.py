@@ -21,6 +21,8 @@ import atexit
 import logging
 from signal import SIGTERM 
 
+from drive_config import DriveConfig, Formatter
+
 # Based in part on code originally from:
 # http://www.jejik.com/articles/2007/02/a_simple_unix_linux_daemon_in_python/
 
@@ -31,47 +33,28 @@ from signal import SIGTERM
 class Daemon(object):
     "A generic daemon class."
     
-    def __init__(self, pidfile, loglevel=None, stdout='/dev/null'):
+    def __init__(self, pidfile, loglevel=None, logfile=None):
         self._pidfile = pidfile
         self._loglevel = loglevel
-        self._stdout = stdout
-
+        self._stdout = "/dev/null"
+        if logfile:
+            self._stdout = logfile
         self._stdin = '/dev/null'
-        self._stderr = stdout
-
+        self._stderr = self._stdout
         self._logger = None
-        
-        if loglevel:
-            if loglevel == logging.DEBUG:
-                formatter = logging.Formatter('%(levelname)-7s %(filename)-16s %(lineno)-5d %(funcName)-16s  %(message)s')
-            else:
-                formatter = logging.Formatter('%(levelname)-7s %(message)s')
-            handler = logging.StreamHandler(stdout)
-            handler.setFormatter(formatter)
-            self._logger = logging.getLogger()
-            self._logger.addHandler(handler)
-            if loglevel == logging.DEBUG:
-                self._logger.setLevel(logging.DEBUG)
-            else:
-                self._logger.setLevel(logging.INFO)
-        else:
-            logging.basicConfig(format='%(levelname)-7s %(message)s', level=logging.WARNING)
-
-    
+            
     def daemonise(self):
         "Daemonise the process."
         
         logging.debug("Daemonising...")
         
         try: 
-            logging.debug("Fork #1")
             pid = os.fork() 
             if pid > 0:
                 # Exit the first parent.
                 sys.exit(0) 
         except OSError, e: 
-            logging.error("Fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
-            sys.exit(1)
+            sys.exit("Fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
     
         # Decouple from parent environment.
         os.chdir("/") 
@@ -80,16 +63,13 @@ class Daemon(object):
     
         # Do the second fork.
         try: 
-            logging.debug("Fork #2")
             pid = os.fork() 
             if pid > 0:
                 # Exit from the second parent.
                 sys.exit(0) 
         except OSError, e: 
-            logging.error("Fork #2 failed: %d (%s)\n" % (e.errno, e.strerror))
-            sys.exit(1) 
+            sys.exit("Fork #2 failed: %d (%s)\n" % (e.errno, e.strerror))
     
-        logging.debug("Redirecting standard file descriptors...")
         sys.stdout.flush()
         sys.stderr.flush()
         si = file(self._stdin, 'r')
@@ -99,10 +79,25 @@ class Daemon(object):
         os.dup2(so.fileno(), sys.stdout.fileno())
         os.dup2(se.fileno(), sys.stderr.fileno())
     
-        logging.debug("Writing pidfile...")
         atexit.register(self._delpid)
         pid = str(os.getpid())
         file(self._pidfile,'w+').write("%s\n" % pid)
+
+        formatter = Formatter()
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(formatter)
+        self._logger = logging.getLogger()
+        if self._logger.handlers:
+            for handler in self._logger.handlers:
+                self._logger.removeHandler(handler)
+        self._logger.addHandler(handler)
+        self._logger.setLevel(logging.DEBUG)
+
+        if self._loglevel:
+            self._logger.setLevel(self._loglevel)
+        else:
+            self._logger.setLevel(logging.DEBUG)
+
     
     def _delpid(self):
         logging.debug("Removing pidfile...")
@@ -122,8 +117,7 @@ class Daemon(object):
             pid = None
     
         if pid:
-            logging.error("pidfile %s already exists. Daemon already running?" % self._pidfile)
-            sys.exit(1)
+            sys.exit("pidfile %s already exists. Daemon already running?" % self._pidfile)
         
         # Start the daemon.
         self.daemonise()

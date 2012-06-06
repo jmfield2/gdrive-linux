@@ -14,8 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
+import sys, time, logging
+
 import daemon
+from gdocs import Session
+from drive_config import DriveConfig
 
 UPDATE_INTERVAL = 30    # Sync update interval in seconds.
 
@@ -23,17 +26,26 @@ class DriveDaemon(daemon.Daemon, object):
     
     def __init__(self):
         "Class constructor."
+        
+        config = DriveConfig()
+        
         # Use pidfile in Gdrive config directory.
-        pidfile = None
+        pidfile = config.getPidFile()
         # Use loglevel from GDrive config.
-        loglevel = None
+        loglevel = config.getLogLevel()
         # Use logfile in GDrive config directory.
-        stdout = None
-        super(DriveDaemon, self).__init__(pidfile, loglevel, stdout)
+        logfile = config.getLogFile()
+        super(DriveDaemon, self).__init__(pidfile, loglevel, logfile)
 
     def run(self):
         "Run the daemon."
+        
+        session = Session(self._logger)
+        if session == None:
+            sys.exit("Error, could not create Google Docs session!")
+            
         while True:
+            logging.debug("Daemon poll loop...")
             # TODO: Add sync logic.
             # TODO: How do we detect that a sync is ongoing, and skip?
             time.sleep(UPDATE_INTERVAL)

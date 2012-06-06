@@ -45,8 +45,6 @@ class Daemon(object):
     def daemonise(self):
         "Daemonise the process."
         
-        logging.debug("Daemonising...")
-        
         try: 
             pid = os.fork() 
             if pid > 0:
@@ -90,7 +88,9 @@ class Daemon(object):
             self._logger.setLevel(self._loglevel)
         else:
             self._logger.setLevel(logging.DEBUG)
-    
+
+        logging.debug("Finished daemonising...")
+
     def _deletePidFile(self):
         "Remove the pidfile."
         os.remove(self._pidfile)
@@ -119,8 +119,8 @@ class Daemon(object):
         "Start the daemon."
         logging.debug("Starting the daemon...")
         pid = self._getPid()
-        if pid:
-            sys.exit("pidfile %s already exists. Daemon already running?" % self._pidfile)
+        if self.isRunning():
+            sys.exit("Daemon already running!")
         self.daemonise()
         self.run()
 
@@ -129,7 +129,7 @@ class Daemon(object):
         logging.debug("Stopping the daemon...")
         pid = self._getPid()
         if not pid:
-            logging.error("pidfile %s does not exist. Daemon not running?" % self._pidfile)
+            sys.stderr.write("Daemon is not running.\n")
             return 
         try:
             while 1:
@@ -151,9 +151,9 @@ class Daemon(object):
     def status(self):
         "Get the status of the daemon."
         if self.isRunning():
-            return "Daemon is running (pid %d)" % self._getPid()
+            return "Daemon is running (pid %d)." % self._getPid()
         else:
-            return "Daemon is not running"
+            return "Daemon is not running."
 
     def restart(self):
         "Restart the daemon."
@@ -166,4 +166,4 @@ class Daemon(object):
         # Override this method when you subclass Daemon. 
         # It will be called after the process has been
         # daemonized by start() or restart().
-        logging.error("This method should never execute, it must be overridden!")
+        sys.stderr.write("This method should never execute, it must be overridden!\n")

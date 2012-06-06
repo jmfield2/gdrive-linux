@@ -79,7 +79,7 @@ class Daemon(object):
         os.dup2(so.fileno(), sys.stdout.fileno())
         os.dup2(se.fileno(), sys.stderr.fileno())
     
-        atexit.register(self._delpid)
+        atexit.register(self._deletePidFile)
         pid = str(os.getpid())
         file(self._pidfile,'w+').write("%s\n" % pid)
 
@@ -99,48 +99,46 @@ class Daemon(object):
             self._logger.setLevel(logging.DEBUG)
 
     
-    def _delpid(self):
-        logging.debug("Removing pidfile...")
+    def _deletePidFile(self):
+        "Remove the pidfile."
         os.remove(self._pidfile)
 
-    def start(self):
-        "Start the daemon."
-        
-        logging.debug("Starting the daemon...")
-        
-        # Check for a pidfile to see if the daemon is already running.
+    def _getPid(self):
+        "Return the pid of the running daemon process, or None."
         try:
-            pf = file(self._pidfile,'r')
-            pid = int(pf.read().strip())
-            pf.close()
+            with open(self._pidfile, "r") as f:
+                pid = int(f.read())
         except IOError:
             pid = None
+        return pid
     
+    def _getCmdLine(self, pid):
+        "Return the command line of the specified pid, or None."
+        if pid == None:
+            return None
+        try:
+            with open("/proc/%d/cmdline" % pid, "r") as f:
+                cmdline = f.read().lower()
+        except IOError:
+            cmdline = ""
+        return cmdline
+    
+    def start(self):
+        "Start the daemon."
+        logging.debug("Starting the daemon...")
+        pid = self._getPid()
         if pid:
             sys.exit("pidfile %s already exists. Daemon already running?" % self._pidfile)
-        
-        # Start the daemon.
         self.daemonise()
         self.run()
 
     def stop(self):
         "Stop the daemon."
-        
         logging.debug("Stopping the daemon...")
-
-        # Get the pid from the pidfile.
-        try:
-            pf = file(self._pidfile,'r')
-            pid = int(pf.read().strip())
-            pf.close()
-        except IOError:
-            pid = None
-    
+        pid = self._getPid()
         if not pid:
             logging.error("pidfile %s does not exist. Daemon not running?" % self._pidfile)
             return 
-
-        # Try killing the daemon process.    
         try:
             while 1:
                 os.kill(pid, SIGTERM)
@@ -153,6 +151,21 @@ class Daemon(object):
             else:
                 print str(err)
                 sys.exit(1)
+
+    def isRunning(self):
+        "Return True if the daemon is running, False otherwise."
+        cmdline = self._getCmdLine(self._getPid())
+        if cmdline:
+            return "gdrive" in cmdline
+        else:
+            return False
+
+    def status(self):
+        "Get the status of the daemon."
+        if self.isRunning():
+            return "Daemon is running (pid %d)" % self._getPid()
+        else:
+            return "Daemon is not running"
 
     def restart(self):
         "Restart the daemon."

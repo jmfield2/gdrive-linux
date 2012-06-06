@@ -167,7 +167,6 @@ class DriveConfig(object):
                 for option in options:
                     if option == "excludes":
                         exclist = []
-                        # Need to handle the comma-delimited quoted strings.
                         parser = csv.reader(config.get(section, option), skipinitialspace=True)
                         for fields in parser:
                             for index, field in enumerate(fields):
@@ -192,7 +191,6 @@ class DriveConfig(object):
                 for option in self._config[section]:
                     if option == "excludes":
                         if self._config[section][option]:
-                            # Need to handle the comma-delimited quoted strings.
                             excstr = ', '.join(self._config[section][option])
                             config.set(section, option, excstr)
                         else:

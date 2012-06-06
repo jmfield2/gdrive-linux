@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import sys, time, logging
+import os, sys, time, logging
 
 import daemon
 from gdocs import Session
@@ -26,24 +26,19 @@ class DriveDaemon(daemon.Daemon, object):
     
     def __init__(self):
         "Class constructor."
-        
         config = DriveConfig()
-        
-        # Use pidfile in Gdrive config directory.
         pidfile = config.getPidFile()
-        # Use loglevel from GDrive config.
         loglevel = config.getLogLevel()
-        # Use logfile in GDrive config directory.
         logfile = config.getLogFile()
+        if os.path.exists(logfile):
+            os.remove(logfile)
         super(DriveDaemon, self).__init__(pidfile, loglevel, logfile)
 
     def run(self):
         "Run the daemon."
-        
         session = Session(self._logger)
         if session == None:
             sys.exit("Error, could not create Google Docs session!")
-            
         while True:
             logging.debug("Daemon poll loop...")
             # TODO: Add sync logic.

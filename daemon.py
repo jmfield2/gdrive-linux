@@ -19,7 +19,7 @@ import os
 import time
 import atexit
 import logging
-from signal import SIGTERM 
+from signal import SIGTERM
 
 from drive_config import DriveConfig, Formatter
 
@@ -31,47 +31,46 @@ from drive_config import DriveConfig, Formatter
 
 class Daemon(object):
     "A generic Unix daemon class."
-    
+
     def __init__(self, pidfile, loglevel=None, logfile=None):
         self._pidfile = pidfile
         self._loglevel = loglevel
-        self._stdout = "/dev/null"
+        self._stdout = None
         if logfile:
             self._stdout = logfile
-        self._stdin = '/dev/null'
         self._stderr = self._stdout
         self._logger = None
-            
+
     def daemonise(self):
         "Daemonise the process."
-        
-        try: 
-            pid = os.fork() 
+
+        try:
+            pid = os.fork()
             if pid > 0:
-                sys.exit(0) 
-        except OSError, e: 
+                sys.exit(0)
+        except OSError, e:
             sys.exit("Fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
-    
-        os.chdir("/") 
-        os.setsid() 
-        os.umask(0) 
-    
-        try: 
-            pid = os.fork() 
+
+        os.chdir("/")
+        os.setsid()
+        os.umask(0)
+
+        try:
+            pid = os.fork()
             if pid > 0:
-                sys.exit(0) 
-        except OSError, e: 
+                sys.exit(0)
+        except OSError, e:
             sys.exit("Fork #2 failed: %d (%s)\n" % (e.errno, e.strerror))
-    
+
         sys.stdout.flush()
         sys.stderr.flush()
-        si = file(self._stdin, 'r')
-        so = file(self._stdout, 'a+')
-        se = file(self._stderr, 'a+', 0)
+        si = file("/dev/null", 'r')
+        so = file(self._stdout, 'w')
+        se = file(self._stderr, 'w', 0)
         os.dup2(si.fileno(), sys.stdin.fileno())
         os.dup2(so.fileno(), sys.stdout.fileno())
         os.dup2(se.fileno(), sys.stderr.fileno())
-    
+
         atexit.register(self._deletePidFile)
         pid = str(os.getpid())
         file(self._pidfile,'w+').write("%s\n" % pid)
@@ -103,7 +102,7 @@ class Daemon(object):
         except IOError:
             pid = None
         return pid
-    
+
     def _getCmdLine(self, pid):
         "Return the command line of the specified pid, or None."
         if pid == None:
@@ -114,7 +113,7 @@ class Daemon(object):
         except IOError:
             cmdline = ""
         return cmdline
-    
+
     def start(self):
         "Start the daemon."
         logging.debug("Starting the daemon...")
@@ -130,7 +129,7 @@ class Daemon(object):
         pid = self._getPid()
         if not pid:
             sys.stderr.write("Daemon is not running.\n")
-            return 
+            return
         try:
             while 1:
                 os.kill(pid, SIGTERM)
@@ -163,7 +162,7 @@ class Daemon(object):
 
     def run(self):
         "Run the daemon."
-        # Override this method when you subclass Daemon. 
+        # Override this method when you subclass Daemon.
         # It will be called after the process has been
         # daemonized by start() or restart().
         sys.stderr.write("This method should never execute, it must be overridden!\n")

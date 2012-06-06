@@ -154,11 +154,7 @@ class Daemon(object):
 
     def isRunning(self):
         "Return True if the daemon is running, False otherwise."
-        cmdline = self._getCmdLine(self._getPid())
-        if cmdline:
-            return "gdrive" in cmdline
-        else:
-            return False
+        return self._getPid() != None
 
     def status(self):
         "Get the status of the daemon."

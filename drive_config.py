@@ -17,13 +17,33 @@
 import os
 import sys
 import logging
+import time
 import shutil
 import csv
 import ConfigParser
 
 
-class DriveConfig(object):
+_DEFAULT_FMT = '%(levelname)-8s [%(asctime)s] %(name)s: %(message)s'
+_DEBUG_FMT = '%(levelname)-8s [%(asctime)s] %(filename)-16s %(lineno)-5d %(funcName)-16s  %(message)s'
+_VERBOSE_FMT = '%(levelname)-8s [%(asctime)s] %(message)s'
+
+class Formatter(logging.Formatter):
+    "Custom log formatter class."
     
+    def __init__(self, fmt=None, datefmt=None):
+        "Class constructor."
+        super(Formatter, self).__init__(fmt or _DEFAULT_FMT, datefmt)
+        self.converter = time.gmtime
+
+    def formatException(self, exc_info):
+        "Format exception messages."
+        text = super(Formatter, self).formatException(exc_info)
+        text = '\n'.join(('! %s' % line) for line in text.splitlines())
+        return text
+
+class DriveConfig(object):
+    "Google Drive configuration class."
+     
     # OAuth 2.0 configuration data.
     APP_NAME = "GDrive-Sync-v1"
     CLIENT_ID = '601991085534.apps.googleusercontent.com'
@@ -61,19 +81,21 @@ class DriveConfig(object):
         }             
     }
 
-    def __init__(self, verbose=False, debug=False):
+    def __init__(self, verbose=False, debug=False, logger=None):
         "Class constructor."
         
         self._verbose = verbose
         self._debug = debug
-        self._config = {}       ## Configuration dict.
-        self._logger = None
+        self._config = {}       # Configuration dict.
+        self._logger = logger   # Supplied logger overrides.
         
-        if verbose or debug:
+        if logger == None:
             if debug:
-                formatter = logging.Formatter('%(levelname)-7s %(filename)-16s %(lineno)-5d %(funcName)-16s  %(message)s')
+                formatter = Formatter(_DEBUG_FMT)
+            elif verbose:
+                formatter = Formatter(_VERBOSE_FMT)
             else:
-                formatter = logging.Formatter('%(levelname)-7s %(message)s')
+                formatter = Formatter()
             handler = logging.StreamHandler(sys.stdout)
             handler.setFormatter(formatter)
             self._logger = logging.getLogger()
@@ -83,10 +105,10 @@ class DriveConfig(object):
             self._logger.addHandler(handler)
             if debug:
                 self._logger.setLevel(logging.DEBUG)
-            else:
+            elif verbose:
                 self._logger.setLevel(logging.INFO)
-        else:
-            logging.basicConfig(format='%(levelname)-7s %(message)s', level=logging.WARNING)
+            else:
+                self._logger.setLevel(logging.WARNING)
 
         # Load configuration (if any), or initialise to default.
         self.loadConfig()

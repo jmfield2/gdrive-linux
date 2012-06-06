@@ -23,15 +23,13 @@ from drive_config import DriveConfig
 UPDATE_INTERVAL = 30    # Sync update interval in seconds.
 
 class DriveDaemon(daemon.Daemon, object):
-    
+
     def __init__(self):
         "Class constructor."
         config = DriveConfig()
         pidfile = config.getPidFile()
         loglevel = config.getLogLevel()
         logfile = config.getLogFile()
-        if os.path.exists(logfile):
-            os.remove(logfile)
         super(DriveDaemon, self).__init__(pidfile, loglevel, logfile)
 
     def run(self):

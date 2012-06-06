@@ -27,6 +27,15 @@ _DEFAULT_FMT = '%(levelname)-8s [%(asctime)s] %(name)s: %(message)s'
 _DEBUG_FMT = '%(levelname)-8s [%(asctime)s] %(filename)-16s %(lineno)-5d %(funcName)-16s  %(message)s'
 _VERBOSE_FMT = '%(levelname)-8s [%(asctime)s] %(message)s'
 
+_LOG_LEVELS = { "NONE":     None, 
+                "DEBUG":    logging.DEBUG, 
+                "INFO":     logging.INFO, 
+                "WARNING":  logging.WARNING, 
+                "ERROR":    logging.ERROR, 
+                "CRITICAL": logging.CRITICAL, 
+                "FATAL":    logging.FATAL
+}
+
 class Formatter(logging.Formatter):
     "Custom log formatter class."
     
@@ -265,9 +274,13 @@ class DriveConfig(object):
     def getLogLevel(self):
         "Get the logging level."
         try:
-            return self._config["logging"]["level"]
-        except KeyError, e:
-            return self.CONFIG_DEFAULTS["logging"]["level"]
+            level = self._config["logging"]["level"].upper()
+        except KeyError:
+            level = self.CONFIG_DEFAULTS["logging"]["level"].upper()
+        try:
+            return _LOG_LEVELS[level]
+        except KeyError:
+            return None
 
     def checkLocalFile(self, path, overwrite=False):
         "Check if the specified file already exists, if so prompt for overwrite."

@@ -60,6 +60,8 @@ class DriveConfig(object):
     TOKEN_FILE = 'token.txt'                # Token blob file name. 
     METADATA_FILE = 'metadata.dat'          # Metadata file name.
     CONFIG_FILE = 'gdrive.cfg'              # Configuration file name.
+    PID_FILE = 'drived.pid'                 # PID file name.
+    LOG_FILE = 'drived.log'                 # Log file name.
     MAX_RESULTS = 500                       # Maximum results to return per request.
     
     # URI to get the root feed. 
@@ -71,14 +73,14 @@ class DriveConfig(object):
     # Default configuration values, for user-configurable options. 
     CONFIG_DEFAULTS = { 
         "localstore": { 
-            "path": ""          # The path to the root of the local copy of the folder tree.
+            "path": ""                  # The path to the root of the local copy of the folder tree.
         }, 
         "general": { 
-            "excludes": ""      # A comma-delimited list of strings specifying paths to be ignored.
+            "excludes": "",             # A comma-delimited list of strings specifying paths to be ignored.
         },
         "logging": {
-            "level": "NONE"     # Sets the log-level (NONE, DEBUG, INFO, WARN, ERROR).
-        }             
+            "level": "NONE"             # Sets the log-level (NONE, DEBUG, INFO, WARN, ERROR).
+        }
     }
 
     def __init__(self, verbose=False, debug=False, logger=None):
@@ -145,6 +147,12 @@ class DriveConfig(object):
 
     def getMetadataFile(self):
         return self.getConfigFile(self.METADATA_FILE)
+
+    def getPidFile(self):
+        return self.getConfigFile(self.PID_FILE)
+
+    def getLogFile(self):
+        return self.getConfigFile(self.LOG_FILE)
 
     def defaultConfig(self):
         logging.debug("Using default configuration...")
@@ -256,7 +264,10 @@ class DriveConfig(object):
 
     def getLogLevel(self):
         "Get the logging level."
-        return self._config["logging"]["level"]
+        try:
+            return self._config["logging"]["level"]
+        except KeyError, e:
+            return self.CONFIG_DEFAULTS["logging"]["level"]
 
     def checkLocalFile(self, path, overwrite=False):
         "Check if the specified file already exists, if so prompt for overwrite."
@@ -298,3 +309,4 @@ class DriveConfig(object):
 
     def getLogger(self):
         return self._logger
+

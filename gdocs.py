@@ -30,11 +30,11 @@ import progressbar
 
 class Session(object):
     
-    def __init__(self, verbose=False, debug=False):
+    def __init__(self, verbose=False, debug=False, logger=None):
         "Class constructor."
         self._debug = debug
         self._verbose = verbose
-        self._config = DriveConfig(verbose, debug)
+        self._config = DriveConfig(verbose, debug, logger)
 
         self._token = None      ## OAuth 2,0 token object.
         self._client = None     ## Google Docs API client object.

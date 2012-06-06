@@ -27,11 +27,10 @@ from drive_config import DriveConfig, Formatter
 # http://www.jejik.com/articles/2007/02/a_simple_unix_linux_daemon_in_python/
 
 # To use, subclass the Daemon class and override the run() method.
-# See http://www.erlenstar.demon.co.uk/unix/faq_2.html#SEC16
-# for details on the daemonisation process.
+# See http://www.erlenstar.demon.co.uk/unix/faq_2.html#SEC16 for details.
 
 class Daemon(object):
-    "A generic daemon class."
+    "A generic Unix daemon class."
     
     def __init__(self, pidfile, loglevel=None, logfile=None):
         self._pidfile = pidfile
@@ -51,21 +50,17 @@ class Daemon(object):
         try: 
             pid = os.fork() 
             if pid > 0:
-                # Exit the first parent.
                 sys.exit(0) 
         except OSError, e: 
             sys.exit("Fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
     
-        # Decouple from parent environment.
         os.chdir("/") 
         os.setsid() 
         os.umask(0) 
     
-        # Do the second fork.
         try: 
             pid = os.fork() 
             if pid > 0:
-                # Exit from the second parent.
                 sys.exit(0) 
         except OSError, e: 
             sys.exit("Fork #2 failed: %d (%s)\n" % (e.errno, e.strerror))
@@ -91,13 +86,10 @@ class Daemon(object):
             for handler in self._logger.handlers:
                 self._logger.removeHandler(handler)
         self._logger.addHandler(handler)
-        self._logger.setLevel(logging.DEBUG)
-
         if self._loglevel:
             self._logger.setLevel(self._loglevel)
         else:
             self._logger.setLevel(logging.DEBUG)
-
     
     def _deletePidFile(self):
         "Remove the pidfile."

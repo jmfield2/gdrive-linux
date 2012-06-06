@@ -98,6 +98,17 @@ Stops the GDrive daemon, gdrived, if it is running.
     daemon.stop()
 
 @command
+def status(argv):
+    """Show the status of the GDrive daemon.
+gdrive status
+
+Shows the status of the GDrive daemon.
+
+"""
+    daemon = DriveDaemon()
+    print daemon.status()
+
+@command
 def restart(argv):
     """Restart GDrive daemon.
 gdrive restart

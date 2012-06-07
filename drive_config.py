@@ -23,9 +23,6 @@ import csv
 import ConfigParser
 
 
-_DEFAULT_FMT = '%(levelname)-8s [%(asctime)s] %(message)s'
-_DEBUG_FMT = '%(levelname)-8s [%(asctime)s] %(filename)-16s %(lineno)-5d %(funcName)-16s  %(message)s'
-
 _LOG_LEVELS = { "NONE":     None, 
                 "DEBUG":    logging.DEBUG, 
                 "INFO":     logging.INFO, 
@@ -38,9 +35,15 @@ _LOG_LEVELS = { "NONE":     None,
 class Formatter(logging.Formatter):
     "Custom log formatter class."
     
-    def __init__(self, fmt=None, datefmt=None):
+    _DEFAULT_FMT = '%(levelname)-8s [%(asctime)s] %(message)s'
+    _DEBUG_FMT = '%(levelname)-8s [%(asctime)s] %(filename)-16s %(lineno)-5d %(funcName)-16s  %(message)s'
+    
+    def __init__(self, debug=False):
         "Class constructor."
-        super(Formatter, self).__init__(fmt or _DEFAULT_FMT, datefmt)
+        fmt = self._DEFAULT_FMT
+        if debug:
+            fmt = self._DEBUG_FMT
+        super(Formatter, self).__init__(fmt)
         self.converter = time.gmtime
 
     def formatException(self, exc_info):
@@ -100,10 +103,7 @@ class DriveConfig(object):
         self._logger = logger   # Supplied logger overrides.
         
         if logger == None:
-            if debug:
-                formatter = Formatter(_DEBUG_FMT)
-            else:
-                formatter = Formatter()
+            formatter = Formatter(debug)
             handler = logging.StreamHandler(sys.stdout)
             handler.setFormatter(formatter)
             self._logger = logging.getLogger()

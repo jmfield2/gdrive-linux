@@ -23,6 +23,7 @@ from drive_config import DriveConfig
 UPDATE_INTERVAL = 30    # Sync update interval in seconds.
 
 class DriveDaemon(daemon.Daemon, object):
+    "Google Drive daemon class."
 
     def __init__(self):
         "Class constructor."
@@ -34,11 +35,18 @@ class DriveDaemon(daemon.Daemon, object):
 
     def run(self):
         "Run the daemon."
-        session = Session(self._logger)
+        logging.debug("Creating session...")
+        session = Session(logger=self._logger)
         if session == None:
             sys.exit("Error, could not create Google Docs session!")
+        
+        logging.debug("Entering poll loop...")
         while True:
             logging.debug("Daemon poll loop...")
             # TODO: Add sync logic.
             # TODO: How do we detect that a sync is ongoing, and skip?
+            # Maybe have a queue of sync/update operations, and use a 
+            # single (initially anyway) thread to process them.
             time.sleep(UPDATE_INTERVAL)
+            
+        logging.debug("Daemon exiting...")

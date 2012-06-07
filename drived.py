@@ -40,7 +40,6 @@ class DriveDaemon(daemon.Daemon, object):
         if session == None:
             sys.exit("Error, could not create Google Docs session!")
         
-        logging.debug("Entering poll loop...")
         while True:
             logging.debug("Daemon poll loop...")
             # TODO: Add sync logic.

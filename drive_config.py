@@ -14,13 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import sys
-import logging
-import time
-import shutil
-import csv
-import ConfigParser
+import os, sys, logging, shutil, csv, ConfigParser
+
+from log import Formatter
 
 
 _LOG_LEVELS = { "NONE":     None, 
@@ -32,25 +28,6 @@ _LOG_LEVELS = { "NONE":     None,
                 "FATAL":    logging.FATAL
 }
 
-class Formatter(logging.Formatter):
-    "Custom log formatter class."
-    
-    _DEFAULT_FMT = '%(levelname)-8s [%(asctime)s] %(message)s'
-    _DEBUG_FMT = '%(levelname)-8s [%(asctime)s] %(filename)-16s %(lineno)-5d %(funcName)-16s  %(message)s'
-    
-    def __init__(self, debug=False):
-        "Class constructor."
-        fmt = self._DEFAULT_FMT
-        if debug:
-            fmt = self._DEBUG_FMT
-        super(Formatter, self).__init__(fmt)
-        self.converter = time.gmtime
-
-    def formatException(self, exc_info):
-        "Format exception messages."
-        text = super(Formatter, self).formatException(exc_info)
-        text = '\n'.join(('! %s' % line) for line in text.splitlines())
-        return text
 
 class DriveConfig(object):
     "Google Drive configuration class."

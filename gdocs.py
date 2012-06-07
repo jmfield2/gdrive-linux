@@ -274,7 +274,8 @@ class Session(object):
                 return False
         else:
             # TODO: Handle this better. Raise an exception?
-            sys.exit("Error: path \"%s\" is unknown!" % path)
+            return False
+            #sys.exit("Error: path \"%s\" is unknown!" % path)
 
     def isFile(self, path):
         "Return true if the specified path is a file."

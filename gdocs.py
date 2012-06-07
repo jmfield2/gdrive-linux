@@ -29,7 +29,7 @@ import progressbar
 
 
 class Session(object):
-    
+
     def __init__(self, verbose=False, debug=False, logger=None):
         "Class constructor."
         self._debug = debug
@@ -38,13 +38,13 @@ class Session(object):
 
         self._token = None      ## OAuth 2,0 token object.
         self._client = None     ## Google Docs API client object.
-        
+
         self._metadata = {}                                 ## Metadata dict.
         self._metadata["changestamp"] = 0                   ## Stores the last changestamp, if any.
         self._metadata["map"] = {}
         self._metadata["map"]["bypath"] = DirectoryTree()   ## Maps paths to resource IDs.
-        self._metadata["map"]["byid"] = {}                  ## Maps resource IDs to paths. 
-        
+        self._metadata["map"]["byid"] = {}                  ## Maps resource IDs to paths.
+
         self._folder_count = 0
         self._file_count = 0
         self._bar = None
@@ -60,14 +60,14 @@ class Session(object):
 
         # Load cached metadata, if any.
         loaded = self._load()
-        
+
         if not loaded:
             # Initialise metadata.
             self._walk()
-        
+
         # Save metadata to cache.
         self._save()
-        
+
         # Ensure local storage tree is available.
         self._config.checkLocalRoot()
 
@@ -77,7 +77,7 @@ class Session(object):
         self._metadata["changestamp"] = 0
         self._metadata["map"] = {}
         self._metadata["map"]["bypath"] = DirectoryTree()
-        self._metadata["map"]["byid"] = {} 
+        self._metadata["map"]["byid"] = {}
         self._walk()
         self._save()
         self._folder_count = 0
@@ -89,7 +89,7 @@ class Session(object):
     def _authorise(self):
         "Perform OAuth 2.0 authorisation."
         saved_auth = False
-        
+
         # Try to read saved auth blob.
         tokenfile = self._config.getTokenFile()
         if os.path.exists(tokenfile):
@@ -101,30 +101,30 @@ class Session(object):
                 self._token = gdata.gauth.token_from_blob(blob)
                 if self._token:
                     saved_auth = True
-        
+
         # Generate the OAuth 2.0 request token.
         logging.info("Generating the request token...")
         if saved_auth:
-            self._token = gdata.gauth.OAuth2Token(client_id=self._config.CLIENT_ID, 
-                                                  client_secret=self._config.CLIENT_SECRET, 
-                                                  scope=" ".join(self._config.SCOPES), 
+            self._token = gdata.gauth.OAuth2Token(client_id=self._config.CLIENT_ID,
+                                                  client_secret=self._config.CLIENT_SECRET,
+                                                  scope=" ".join(self._config.SCOPES),
                                                   user_agent=self._config.USER_AGENT,
                                                   refresh_token=self._token.refresh_token)
         else:
-            self._token = gdata.gauth.OAuth2Token(client_id=self._config.CLIENT_ID, 
-                                                  client_secret=self._config.CLIENT_SECRET, 
-                                                  scope=" ".join(self._config.SCOPES), 
+            self._token = gdata.gauth.OAuth2Token(client_id=self._config.CLIENT_ID,
+                                                  client_secret=self._config.CLIENT_SECRET,
+                                                  scope=" ".join(self._config.SCOPES),
                                                   user_agent=self._config.USER_AGENT)
-            
+
             # Authorise the OAuth 2.0 request token.
             print 'Visit the following URL in your browser to authorise this app:'
             print str(self._token.generate_authorize_url(redirect_url=self._config.REDIRECT_URI))
             print 'After agreeing to authorise the app, copy the verification code from the browser.'
             access_code = raw_input('Please enter the verification code: ')
-            
+
             # Get the OAuth 2.0 Access Token.
             self._token.get_access_token(access_code)
-            
+
         # Save the refresh token.
         if self._token.refresh_token and not saved_auth:
             logging.debug("Saving token...")
@@ -132,7 +132,7 @@ class Session(object):
             blob = gdata.gauth.token_to_blob(self._token)
             f.write(blob)
             f.close()
-    
+
     def _setup(self):
         "Setup Google Docs session."
         # Create the Google Documents List API client.
@@ -140,11 +140,11 @@ class Session(object):
         self._client = gdata.docs.client.DocsClient(source=self._config.APP_NAME)
         #client.ssl = True  # Force HTTPS use.
         #client.http_client.debug = True  # Turn on HTTP debugging.
-        
+
         # Authorise the client.
         logging.info("Authorising the Docs client API...")
         self._client = self._token.authorize(self._client)
-    
+
     def getMetadata(self):
         "Return Google Docs user metadata."
         metadata = self._client.GetMetadata()
@@ -153,8 +153,8 @@ class Session(object):
                                 'trashed': metadata.quota_bytes_used_in_trash.text },
                      'import': [ "%s to %s" % (input_format.source, input_format.target) for input_format in metadata.import_formats ],
                      'export': [ "%s to %s" % (export_format.source, export_format.target) for export_format in metadata.export_formats ],
-                     'features': [ feature.name.text for feature in metadata.features ] 
-        } 
+                     'features': [ feature.name.text for feature in metadata.features ]
+        }
         metadict["upload_sizes"] = {}
         for upload_size in metadata.max_upload_sizes:
             metadict["upload_sizes"][upload_size.kind] = upload_size.text
@@ -171,7 +171,7 @@ class Session(object):
     def _resourceToUri(self, resource):
         "Get the URI for a resource."
         return resource.content.src
-    
+
     def _resourceIdToPath(self, resource_id):
         "Get the path for a resource ID."
         try:
@@ -179,7 +179,7 @@ class Session(object):
         except KeyError:
             path = None
         return path
-    
+
     def _pathToUri(self, path):
         "Get the URI for a path."
         if path == '/':
@@ -193,7 +193,7 @@ class Session(object):
                 raise KeyError
         #logging.debug("path \"%s\" -> URI \"%s\"" % (path, uri))
         return uri
-    
+
     def _pathToResourceId(self, path):
         "Get the resource ID for a path."
         if path in self._metadata["map"]["bypath"]:
@@ -204,7 +204,7 @@ class Session(object):
             raise KeyError
         #logging.debug("path \"%s\" -> ID \"%s\"" % (path, res_id))
         return res_id
-    
+
     def _readFolder(self, path):
         "Read the contents of a folder."
         logging.debug("Reading folder \"%s\"" % path)
@@ -217,8 +217,8 @@ class Session(object):
             itempath = os.path.join(path, entry.title.text)
             itemid = entry.resource_id.text
             item = { "path": itempath,
-                     "resource_id": itemid, 
-                     "uri": entry.content.src, 
+                     "resource_id": itemid,
+                     "uri": entry.content.src,
                      "size": entry.quota_bytes_used.text }
             if entry.get_resource_type() == 'folder':
                 item["type"] = "folder"
@@ -235,11 +235,11 @@ class Session(object):
     def readFolder(self, path):
         "Get the list of items in the specified folder."
         return self._readFolder(path)
-    
+
     def readRoot(self):
         "Get the list of items in the root folder."
         return self._readFolder('/')
-    
+
     def _walk(self, root='/'):
         "Walk the server-side tree, populating the local maps."
         folders, files = self._readFolder(root)
@@ -256,7 +256,7 @@ class Session(object):
             f.close()
             return True
         return False
-    
+
     def _save(self):
         "Save metadata to local file."
         metafile = self._config.getMetadataFile()
@@ -264,7 +264,7 @@ class Session(object):
         f = open(metafile, 'wb')
         pickle.dump(self._metadata, f)
         f.close()
-    
+
     def isFolder(self, path):
         "Return true if the specified path is a folder."
         if path in self._metadata["map"]["bypath"]:
@@ -275,11 +275,11 @@ class Session(object):
         else:
             # TODO: Handle this better. Raise an exception?
             sys.exit("Error: path \"%s\" is unknown!" % path)
-    
+
     def isFile(self, path):
         "Return true if the specified path is a file."
         return not self.isFolder(path)
-    
+
     def getFileSize(self, path):
         "Return the size in bytes of the specified path, if it is a file."
         size = 0
@@ -319,22 +319,22 @@ class Session(object):
             logging.debug("No changes found")
         return resource_ids
 
-    def update(self, path='/', download=False):
+    def update(self, path='/', download=False, interactive=True):
         "Update the local tree at the specified path to match the server."
         logging.debug("Updating %s..." % path)
-        # Request change feed from the last changestamp. 
+        # Request change feed from the last changestamp.
         # If no stored changestamp, then start at the beginning.
         if self._metadata["changestamp"] == 0:
             #self._metadata["changestamp"] = self._getLargestChangestamp() + 1
             self._walk(root=path)
             if download:
-                self.download(path, self._config.getLocalPath(path), overwrite=True)
+                self.download(path, self._config.getLocalPath(path), overwrite=True, interactive=interactive)
         # Now check for changes again, since before we walked.
         resource_ids = self._getChanges(self._metadata["changestamp"])
         if len(resource_ids) > 0:
             # Iterate over the changes, downloading each resource.
             for res_id in resource_ids:
-                res_path = self._resourceIdToPath(res_id) 
+                res_path = self._resourceIdToPath(res_id)
                 if res_path == None:
                     logging.debug("No local path for resource ID %s" % res_id)
                     # The resource is not in our cache.
@@ -344,9 +344,9 @@ class Session(object):
                         logging.error("Failed to get resource \"%s\"" % res_id)
                         break
                     self._printresource(resource)
-                    # Repeatedly get the parent until we find one in our cache, or else reach the root, 
-                    # which should always exist. If it has no parent, and is not in root, then it must 
-                    # be shared. 
+                    # Repeatedly get the parent until we find one in our cache, or else reach the root,
+                    # which should always exist. If it has no parent, and is not in root, then it must
+                    # be shared.
                     # TODO: support shared resources somehow.
                     parents = resource.InCollections()
                     for parent in parents:
@@ -369,8 +369,8 @@ class Session(object):
                             logging.debug("Found parent path %s in cache for resource ID %s" % (top_path, parent_resid))
                         self._walk(top_path)
                         # Download the top_path subtree here.
-                        if download: 
-                            self.download(top_path, self._getLocalPath(top_path), overwrite=True)
+                        if download:
+                            self.download(top_path, self._getLocalPath(top_path), overwrite=True, interactive=interactive)
                     res_path = self._resourceIdToPath(res_id)
                     if res_path == None:
                         logging.warn("No parent path found, must be a shared resource, skipping...")
@@ -379,15 +379,15 @@ class Session(object):
                 if res_path.startswith(path):
                     logging.debug("Get resource %s (%s)" % (res_id, res_path))
                     if download:
-                        self.download(res_path, self._config.getLocalPath(res_path), overwrite=True)
+                        self.download(res_path, self._config.getLocalPath(res_path), overwrite=True, interactive=interactive)
                 else:
                     logging.debug("Ignoring change to path %s, not in target path %s" % (res_path, path))
         self._save()
 
     def getNumResources(self, path=None):
         "Returns the total number of resources (files, folders) in the specified path, and all subtrees."
-        return len(self._metadata["map"]["bypath"].keys(path))                 
-        
+        return len(self._metadata["map"]["bypath"].keys(path))
+
     def getNumRemoteFolders(self, path=None):
         "Returns the total number of folders in the specified remote path, and all subtrees."
         count = 0
@@ -395,7 +395,7 @@ class Session(object):
             if value["type"] == "folder":
                 count += 1
         return count
-        
+
     def getNumRemoteFiles(self, path=None):
         "Returns the total number of files in the specified remote path, and all subtrees."
         count = 0
@@ -403,14 +403,14 @@ class Session(object):
             if value["type"] != "folder":
                 count += 1
         return count
-        
+
     def getNumLocalFolders(self, path):
         "Returns the total number of folders in the specified local path, and all subtrees."
         count = 0
         for root, dirs, files in os.walk(path):
             count += len(dirs)
         return count
-        
+
     def getNumLocalFiles(self, path):
         "Returns the total number of files in the specified local path, and all subtrees."
         count = 0
@@ -428,7 +428,7 @@ class Session(object):
         if self.isFolder(path):
             if self._config.checkLocalFolder(localpath, overwrite=overwrite):
                 logging.error("Cannot overwrite local path \"%s\", exiting!" % localpath)
-                return 
+                return
             logging.info("Downloading folder %s (%d of %d)..." % (localpath, self._folder_count, self._num_folders))
             (folders, files) = self._readFolder(path)
             for fname in files:
@@ -448,13 +448,13 @@ class Session(object):
             self._client.DownloadResource(entry, localpath)
         return True
 
-    def download(self, path, localpath=None, overwrite=False):
+    def download(self, path, localpath=None, overwrite=False, interactive=False):
         "Download a file or a folder tree."
         self._folder_count = 1
         self._num_folders = self.getNumRemoteFolders(path)
         self._file_count = 1
         self._num_files = self.getNumRemoteFiles(path)
-        if not self._verbose and not self._debug:
+        if interactive:
             if self._num_folders + self._num_files > 2:
                 self._bar = progressbar.ProgressBar(width=80)
         if localpath is None:
@@ -467,13 +467,13 @@ class Session(object):
         self._download(path, localpath, overwrite=overwrite)
         self._folder_count = 0
         self._file_count = 0
-        
+
     def _upload(self, localpath, path):
         "Download a file."
         logging.error("Upload is not yet implemented!")
         return False
 
-    def upload(self, localpath, path=None):
+    def upload(self, localpath, path=None, interactive=False):
         "Upload a file or a folder tree."
         if path is None:
             if localpath.startswith(self._config.getLocalRoot()):
@@ -484,13 +484,13 @@ class Session(object):
         self._num_folders = self.getNumLocalFolders(path)
         self._file_count = 1
         self._num_files = self.getNumLocalFiles(path)
-        if not self._verbose and not self._debug:
+        if interactive:
             if self._num_folders + self._num_files > 2:
                 self._bar = progressbar.ProgressBar(width=80)
         self._upload(localpath, path)
         self._folder_count = 0
         self._file_count = 0
-        
+
     def getInfo(self):
         "Return general information."
         userdata = self.getMetadata()

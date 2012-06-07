@@ -319,7 +319,7 @@ class Session(object):
             logging.debug("No changes found")
         return resource_ids
 
-    def update(self, path='/'):
+    def update(self, path='/', download=False):
         "Update the local tree at the specified path to match the server."
         logging.debug("Updating %s..." % path)
         # Request change feed from the last changestamp. 
@@ -327,7 +327,8 @@ class Session(object):
         if self._metadata["changestamp"] == 0:
             #self._metadata["changestamp"] = self._getLargestChangestamp() + 1
             self._walk(root=path)
-            self.download(path, self._config.getLocalPath(path), overwrite=True)
+            if download:
+                self.download(path, self._config.getLocalPath(path), overwrite=True)
         # Now check for changes again, since before we walked.
         resource_ids = self._getChanges(self._metadata["changestamp"])
         if len(resource_ids) > 0:
@@ -367,8 +368,9 @@ class Session(object):
                             top_path = self._resourceIdToPath(parent_resid)
                             logging.debug("Found parent path %s in cache for resource ID %s" % (top_path, parent_resid))
                         self._walk(top_path)
-                        # Download the top_path subtree here. 
-                        #self.download(top_path, self._getLocalPath(top_path), overwrite=True)
+                        # Download the top_path subtree here.
+                        if download: 
+                            self.download(top_path, self._getLocalPath(top_path), overwrite=True)
                     res_path = self._resourceIdToPath(res_id)
                     if res_path == None:
                         logging.warn("No parent path found, must be a shared resource, skipping...")
@@ -376,7 +378,8 @@ class Session(object):
                 # Check if resource path is in the path specified.
                 if res_path.startswith(path):
                     logging.debug("Get resource %s (%s)" % (res_id, res_path))
-                    self.download(res_path, self._config.getLocalPath(res_path), overwrite=True)
+                    if download:
+                        self.download(res_path, self._config.getLocalPath(res_path), overwrite=True)
                 else:
                     logging.debug("Ignoring change to path %s, not in target path %s" % (res_path, path))
         self._save()

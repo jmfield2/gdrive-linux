@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import sys
 import os
 import time
@@ -21,7 +22,8 @@ import atexit
 import logging
 from signal import SIGTERM
 
-from drive_config import DriveConfig, Formatter
+from log import Formatter
+
 
 # Based in part on code originally from:
 # http://www.jejik.com/articles/2007/02/a_simple_unix_linux_daemon_in_python/

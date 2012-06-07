@@ -39,14 +39,14 @@ class DriveDaemon(daemon.Daemon, object):
         session = Session(logger=self._logger)
         if session == None:
             sys.exit("Error, could not create Google Docs session!")
-        
+
         while True:
             logging.debug("Daemon poll loop...")
-            session.update()
+            session.update(download=True, overwrite=True)
             # TODO: Add sync logic.
             # TODO: How do we detect that a sync is ongoing, and skip?
-            # Maybe have a queue of sync/update operations, and use a 
+            # Maybe have a queue of sync/update operations, and use a
             # single (initially anyway) thread to process them.
             time.sleep(UPDATE_INTERVAL)
-            
+
         logging.debug("Daemon exiting...")

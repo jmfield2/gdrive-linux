@@ -42,6 +42,7 @@ class DriveDaemon(daemon.Daemon, object):
         
         while True:
             logging.debug("Daemon poll loop...")
+            session.update()
             # TODO: Add sync logic.
             # TODO: How do we detect that a sync is ongoing, and skip?
             # Maybe have a queue of sync/update operations, and use a 

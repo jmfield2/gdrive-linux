@@ -151,7 +151,7 @@ Update the contents of the specified path, recursively. If no path is specified,
         path = '/'
     else:
         path = argv[0]
-    session.update(path)
+    session.update(path, download=True)
 
 @command
 def sync(argv):

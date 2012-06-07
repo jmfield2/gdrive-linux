@@ -151,7 +151,7 @@ Update the contents of the specified path, recursively. If no path is specified,
         path = '/'
     else:
         path = argv[0]
-    session.update(path, download=True)
+    session.update(path, download=True, interactive=True)
 
 @command
 def sync(argv):
@@ -175,9 +175,9 @@ def download(argv):
 gdrive download [<path> [<localpath>]]
 
 Download the contents of the specified path, recursively. If no path is specified, then the entire GDrive will be downloaded.
-This command will create a local copy of the specified file or folder tree, or if it exists already, will update it to match 
-the server contents. If a local path is specified, then the file or folder will be downloaded at that path. If no localpath 
-is specified, then the "localstore"/"path" configuration option will be used. 
+This command will create a local copy of the specified file or folder tree, or if it exists already, will update it to match
+the server contents. If a local path is specified, then the file or folder will be downloaded at that path. If no localpath
+is specified, then the "localstore"/"path" configuration option will be used.
 """
     localpath = None
     if len(argv) == 0:
@@ -186,7 +186,7 @@ is specified, then the "localstore"/"path" configuration option will be used.
         path = argv[0]
         if len(argv) > 1:
             localpath = argv[1]
-    session.download(path, localpath)
+    session.download(path, localpath, interactive=True)
 
 @command
 @alias("put")
@@ -195,9 +195,9 @@ def upload(argv):
 gdrive upload <localpath> [<path>]
 
 Upload the contents of the specified path, recursively. A local path must be specified.
-This command will create a server copy of the specified file or folder tree, or if it exists already on the server, will update 
-it to match the local contents. If a remote path is specified, then the file or folder will be uploaded at that path relative to 
-the root of the server tree.  
+This command will create a server copy of the specified file or folder tree, or if it exists already on the server, will update
+it to match the local contents. If a remote path is specified, then the file or folder will be uploaded at that path relative to
+the root of the server tree.
 """
     path = None
     if len(argv) == 0:
@@ -206,7 +206,7 @@ the root of the server tree.
         localpath = argv[0]
         if len(argv) > 1:
             path = argv[1]
-    session.upload(localpath, path)
+    session.upload(localpath, path, interactive=True)
 
 @command
 def reset(argv):
@@ -239,7 +239,7 @@ Prints out general information, e.g. total number of files/folders, quotas used,
 def _parseArgs():
     "Parse command-line arguments."
     helpStr = """
-%prog [options] 
+%prog [options]
 
 Utility to access Google Drive.
 
@@ -262,7 +262,7 @@ def main(argv):
         if args[i] in commands or args[i] in aliases:
             cmdfound = True
             break
-    
+
     if not cmdfound:
         usage()
         return None

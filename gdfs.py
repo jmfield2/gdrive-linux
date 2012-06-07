@@ -26,51 +26,11 @@ import gdocs
 
 fuse.fuse_python_api = (0, 2)
 
-class Resource(object):
-    """GDrive object (file/dir)."""
-
-    def __init__(self, mode):
-        self.mode = mode
-
-
-class Drive(object):
-    "Class representing users GDrive."
-
-    def __init__(self):
-        "Class constructor."
-        self._session = gdocs.Session()
-        self._root = {'/': self._readDir('/')}
-
-    def _readDir(self, dirname):
-        """Recursively read contents of dirname, return dict mapping
-           object names to Resources."""
-        dirs, files = self._session.readFolder(dirname)
-
-        items = {}
-        for f in files:
-            items[f] = Resource(stat.S_IFREG)
-        for d in dirs:
-            items[d] = Resource(stat.S_IFDIR)
-            items.update(self._readDir(d))
-
-        return items
-
-    def resource(self, path):
-        """ Return resource at path, None if it doesn't exist. """
-        # eh, this is wrong... but it works if you only have the root dir
-        res = None
-        try:
-            res = self._root[path]
-        except KeyError:
-            pass
-        return res
-
-
 class MyStat(fuse.Stat):
     def __init__(self):
+        fuse.Stat.__init__(self)
+
         self.st_mode = 0
-        self.st_ino = 0
-        self.st_dev = 0
         self.st_nlink = 0
         self.st_uid = os.getuid()
         self.st_gid = os.getgid()
@@ -86,7 +46,6 @@ class GDriveFs(Fuse):
         Fuse.__init__(self, *args, **kwargs)
         self._uid = os.getuid()
         self._gid = os.getgid()
-        #self._drive = Drive()
         self._session = gdocs.Session(verbose=True, debug=True)
 
     def getattr(self, path):
@@ -102,22 +61,25 @@ class GDriveFs(Fuse):
             if self._session.isFolder(path):
                 st.st_mode = stat.S_IFDIR | 0755
                 st.st_nlink = 2
-            else:
+            elif self._session.isFile(path):
                 st.st_mode = stat.S_IFREG | 0444
                 st.st_nlink = 1
-                st.st_size = 0  ## TODO!
+                st.st_size = self._session.getFileSize(path)
+            else:
+                return -errno.ENOENT
         return st
 
     def readdir(self, path, offset):
         "Generator for the contents of a directory."
         print "readdir(%s,%s)" % (path, offset)
         folders, files = self._session.readFolder(path)
-        items = [ '.', '..' ]
+        items = [ '/.', '/..' ]
         items.extend(folders)
         items.extend(files)
         for r in  items:
             print "Yielding", r
-            yield fuse.Direntry(r)
+            # Pathnames are prefixed with '/'
+            yield fuse.Direntry(r[1:])
 
     def open(self, path, flags):    
         "Open file."

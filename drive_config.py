@@ -176,7 +176,7 @@ class DriveConfig(object):
         "Save the current configuration data to the configuration file." 
         config = ConfigParser.RawConfigParser()
         cfgfile = self.getConfigFile(self.CONFIG_FILE)
-        if not self.checkLocalFile(cfgfile):
+        if self.checkLocalFile(cfgfile):
             for section in self._config:
                 config.add_section(section)
                 for option in self._config[section]:
@@ -257,42 +257,38 @@ class DriveConfig(object):
             return None
 
     def checkLocalFile(self, path, overwrite=False):
-        "Check if the specified file already exists, if so prompt for overwrite."
-        # TODO Eventually, allow overwrites to be controlled by a config setting.
-        # For now, play safe.
+        "Return True if it is safe to write to the specified file."
         if not os.path.exists(path):
-            return False
+            return True
         if not os.path.isfile(path):
             # TODO: handle this?
             logging.error("Local path \"%s\" exists, but is not a file!" % path)
-            return True
+            return False
         if not overwrite:
             answer = raw_input("Local file \"%s\" already exists, overwrite? (y/N):" % path)
             if answer.upper() != 'Y':
-                return True
+                return False
         logging.debug("Removing \"%s\"..." % path)
         os.remove(path)
-        return False
-        
+        return True
+
     def checkLocalFolder(self, path, overwrite=False):
-        "Check if the specified folder already exists, if so prompt for overwrite."
-        # TODO Eventually, allow overwrites to be controlled by a config setting.
-        # For now, play safe.
+        "Return True if it is safe to write to the specified folder."
         if not os.path.exists(path):
             os.mkdir(path)
-            return False
+            return True
         if not os.path.isdir(path):
             # TODO: handle this?
             logging.error("Local path \"%s\" exists, but is not a folder!" % path)
-            return True
+            return False
         if not overwrite:
             answer = raw_input("Local folder \"%s\" already exists, overwrite? (y/N):" % path)
             if answer.upper() != 'Y':
-                return True
+                return False
             logging.debug("Removing \"%s\"..." % path)
             shutil.rmtree(path)
             os.mkdir(path)
-        return False
+        return True
 
     def getLogger(self):
         return self._logger

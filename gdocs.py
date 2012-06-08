@@ -427,7 +427,7 @@ class Session(object):
             logging.error("Failed to download path \"%s\"" % path)
             return False
         if self.isFolder(path):
-            if self._config.checkLocalFolder(localpath, overwrite=overwrite):
+            if not self._config.checkLocalFolder(localpath, overwrite=overwrite):
                 logging.error("Cannot overwrite local path \"%s\", exiting!" % localpath)
                 return
             logging.info("Downloading folder %s (%d of %d)..." % (localpath, self._folder_count, self._num_folders))
@@ -444,7 +444,7 @@ class Session(object):
             logging.info("Downloading file %s (%d bytes) (%d of %d)..." % (localpath, self.getFileSize(path), self._file_count, self._num_files))
             if self._bar:
                 self._bar.render(self._file_count * 100 / self._num_files, localpath)
-            if self._config.checkLocalFile(localpath, overwrite=overwrite):
+            if not self._config.checkLocalFile(localpath, overwrite=overwrite):
                 return False
             self._client.DownloadResource(entry, localpath)
         return True

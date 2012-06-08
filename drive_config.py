@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, sys, logging, shutil, csv, ConfigParser
+import os, sys, logging, shutil, csv, ConfigParser, stat
 
 from log import Formatter
 
@@ -288,6 +288,7 @@ class DriveConfig(object):
             logging.debug("Removing \"%s\"..." % path)
             shutil.rmtree(path)
             os.mkdir(path)
+            os.chmod(path, stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
         return True
 
     def getLogger(self):

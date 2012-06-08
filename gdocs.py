@@ -432,24 +432,24 @@ class Session(object):
             logging.error("Failed to download path \"%s\"" % path)
             return False
         if self.isFolder(path):
-            if not self._config.checkLocalFolder(localpath, overwrite=overwrite):
+            if not self._config.checkLocalFolder(localpath, overwrite):
                 logging.error("Cannot overwrite local path \"%s\", exiting!" % localpath)
                 return
             logging.info("Downloading folder %s (%d of %d)..." % (localpath, self._folder_count, self._num_folders))
             (folders, files) = self._readFolder(path)
             for fname in files:
                 lpath = os.path.join(localpath, os.path.basename(fname))
-                self._download(fname, lpath)
+                self._download(fname, lpath, overwrite)
                 self._file_count += 1
             for folder in folders:
                 lpath = os.path.join(localpath, os.path.basename(folder))
-                self._download(folder, lpath)
+                self._download(folder, lpath, overwrite)
             self._folder_count += 1
         else:
             logging.info("Downloading file %s (%d bytes) (%d of %d)..." % (localpath, self.getFileSize(path), self._file_count, self._num_files))
             if self._bar:
                 self._bar.render(self._file_count * 100 / self._num_files, localpath)
-            if not self._config.checkLocalFile(localpath, overwrite=overwrite):
+            if not self._config.checkLocalFile(localpath, overwrite):
                 return False
             self._client.DownloadResource(entry, localpath)
         return True
@@ -470,7 +470,7 @@ class Session(object):
             if path == '/' + exclude:
                 logging.debug("Skipping folder on exclude list")
                 return
-        self._download(path, localpath, overwrite=overwrite)
+        self._download(path, localpath, overwrite)
         self._folder_count = 0
         self._file_count = 0
 

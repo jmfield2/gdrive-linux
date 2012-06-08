@@ -271,6 +271,8 @@ class Session(object):
                 return True
             else:
                 return False
+        elif path == '/':
+            return True
         else:
             # TODO: Handle this better. Raise an exception?
             return False

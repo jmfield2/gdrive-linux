@@ -323,9 +323,9 @@ class Session(object):
 
     def update(self, path='/', download=False, interactive=True):
         "Update the local tree at the specified path to match the server."
-        logging.debug("Updating %s..." % path)
+        logging.debug("Updating %s ..." % path)
         localpath = self._config.getLocalPath(path)
-        if not os.path.exists(localpath):
+        if path == '/' or not os.path.exists(localpath):
             logging.debug("Local copy does not exist, fetching...")
             self.download(path, localpath, overwrite=True, interactive=interactive)
         else:

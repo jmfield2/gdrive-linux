@@ -225,13 +225,15 @@ class DriveConfig(object):
 
     def getLocalPath(self, path):
         "Return the local path corresponding to the specified remote path."
-        if path.startswith(self._config["localstore"]["path"]) is True:
+        root = self.getLocalRoot()
+        if path == '/':
+            return root
+        if path.startswith(root):
             return path
-        else:
-            if os.path.isabs(path):
-                # Strip the leading slash, otherwise os.path.join throws away any preceding paths in the list.
-                path = path[1:]
-            return os.path.join(self.getLocalRoot(), path)
+        if os.path.isabs(path):
+            # Strip the leading slash, otherwise os.path.join throws away any preceding paths in the list.
+            path = path[1:]
+        return os.path.join(root, path)
 
     def getExcludes(self):
         "Get the list of folders/files to be excluded."

@@ -14,11 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import sys
-import logging
-import pickle
-import pprint
+import os, sys, logging, pickle, pprint, stat
 
 import gdata.gauth
 import gdata.docs.client
@@ -196,12 +192,15 @@ class Session(object):
 
     def _pathToResourceId(self, path):
         "Get the resource ID for a path."
-        if path in self._metadata["map"]["bypath"]:
-            res_id = self._metadata["map"]["bypath"][path]["resource_id"]
+        if path == '/':
+            res_id = "folder:root"
         else:
-            # TODO: try to handle this better.
-            logging.error("Path \"%s\" is unknown!" % path)
-            raise KeyError
+            if path in self._metadata["map"]["bypath"]:
+                res_id = self._metadata["map"]["bypath"][path]["resource_id"]
+            else:
+                # TODO: try to handle this better.
+                logging.error("Path \"%s\" is unknown!" % path)
+                raise KeyError
         #logging.debug("path \"%s\" -> ID \"%s\"" % (path, res_id))
         return res_id
 
@@ -426,11 +425,12 @@ class Session(object):
 
     def _download(self, path, localpath, overwrite=False):
         "Download a file."
-        res_id = self._pathToResourceId(path)
-        entry = self._client.GetResourceById(res_id)
-        if not entry:
-            logging.error("Failed to download path \"%s\"" % path)
-            return False
+        entry = None
+        if path != '/':
+            entry = self._client.GetResourceById(self._pathToResourceId(path))
+            if not entry:
+                logging.error("Failed to download path \"%s\"" % path)
+                return False
         if self.isFolder(path):
             if not self._config.checkLocalFolder(localpath, overwrite):
                 logging.error("Cannot overwrite local path \"%s\", exiting!" % localpath)
@@ -452,6 +452,7 @@ class Session(object):
             if not self._config.checkLocalFile(localpath, overwrite):
                 return False
             self._client.DownloadResource(entry, localpath)
+            os.chmod(localpath, stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
         return True
 
     def download(self, path, localpath=None, overwrite=False, interactive=False):

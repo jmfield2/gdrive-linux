@@ -330,7 +330,8 @@ class Session(object):
             # Request change feed from the last changestamp.
             # If no stored changestamp, then start at the beginning.
             if self._metadata["changestamp"] == 0:
-                #self._metadata["changestamp"] = self._getLargestChangestamp() + 1
+                logging.debug("Stored changestamp is zero, walking the tree...")
+                self._metadata["changestamp"] = self._getLargestChangestamp() + 1
                 self._walk(root=path)
                 if download:
                     self.download(path, localpath, overwrite=True, interactive=interactive)

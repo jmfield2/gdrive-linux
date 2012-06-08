@@ -399,7 +399,11 @@ class Session(object):
     def getNumRemoteFolders(self, path=None):
         "Returns the total number of folders in the specified remote path, and all subtrees."
         count = 0
-        for value in self._metadata["map"]["bypath"].itervalues(path):
+        if path == '/':
+            values = self._metadata["map"]["bypath"].itervalues()
+        else:
+            values = self._metadata["map"]["bypath"].itervalues(path)
+        for value in values:
             if value["type"] == "folder":
                 count += 1
         return count
@@ -407,7 +411,11 @@ class Session(object):
     def getNumRemoteFiles(self, path=None):
         "Returns the total number of files in the specified remote path, and all subtrees."
         count = 0
-        for value in self._metadata["map"]["bypath"].itervalues(path):
+        if path == '/':
+            values = self._metadata["map"]["bypath"].itervalues()
+        else:
+            values = self._metadata["map"]["bypath"].itervalues(path)
+        for value in values:
             if value["type"] != "folder":
                 count += 1
         return count

@@ -463,7 +463,7 @@ class Session(object):
             if not self._config.checkLocalFile(localpath, overwrite):
                 return False
             self._client.DownloadResource(entry, localpath)
-            os.chmod(localpath, stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
+            os.chmod(localpath, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
         return True
 
     def download(self, path, localpath=None, overwrite=False, interactive=False):

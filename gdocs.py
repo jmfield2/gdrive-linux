@@ -371,7 +371,7 @@ class Session(object):
                         self._walk(top_path)
                         # Download the top_path subtree here.
                         if download:
-                            self.download(top_path, self._getLocalPath(top_path), overwrite=True, interactive=interactive)
+                            self.download(top_path, self._config.getLocalPath(top_path), overwrite=True, interactive=interactive)
                     res_path = self._resourceIdToPath(res_id)
                     if res_path == None:
                         logging.warn("No parent path found, must be a shared resource, skipping...")

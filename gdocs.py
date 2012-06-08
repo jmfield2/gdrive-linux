@@ -323,66 +323,71 @@ class Session(object):
     def update(self, path='/', download=False, interactive=True):
         "Update the local tree at the specified path to match the server."
         logging.debug("Updating %s..." % path)
-        # Request change feed from the last changestamp.
-        # If no stored changestamp, then start at the beginning.
-        if self._metadata["changestamp"] == 0:
-            #self._metadata["changestamp"] = self._getLargestChangestamp() + 1
-            self._walk(root=path)
-            if download:
-                self.download(path, self._config.getLocalPath(path), overwrite=True, interactive=interactive)
-        # Now check for changes again, since before we walked.
-        resource_ids = self._getChanges(self._metadata["changestamp"])
-        if len(resource_ids) > 0:
-            # Iterate over the changes, downloading each resource.
-            for res_id in resource_ids:
-                res_path = self._resourceIdToPath(res_id)
-                if res_path == None:
-                    logging.debug("No local path for resource ID %s" % res_id)
-                    # The resource is not in our cache.
-                    resource = self._client.GetResourceById(res_id, show_root=True)
-                    if not resource:
-                        # TODO: This should never fail.
-                        logging.error("Failed to get resource \"%s\"" % res_id)
-                        break
-                    self._printresource(resource)
-                    # Repeatedly get the parent until we find one in our cache, or else reach the root,
-                    # which should always exist. If it has no parent, and is not in root, then it must
-                    # be shared.
-                    # TODO: support shared resources somehow.
-                    parents = resource.InCollections()
-                    for parent in parents:
-                        logging.debug("parent: %s" % parent.href)
-                        if parent.href == self._config.ROOT_FOLDER_HREF:
-                            logging.debug("Parent is root folder")
-                            top_path = '/'
-                        else:
-                            parent_resource = self._client.GetResourceBySelfLink(parent.href, show_root=True)
-                            parent_resid = parent_resource.resource_id.text
-                            logging.debug("Parent resource ID %s" % parent_resid)
-                            parent_resids = [parent_resid]
-                            while parent_resid not in self._metadata["map"]["byid"]:
-                                logging.debug("Parent resource ID %s not in cache" % parent_resid)
-                                parent = parent.InCollections()
-                                parent_resource = self._client.GetResourceBySelfLink(parent.href, show_root=True)
-                                parent_resid = parent_resource.resource_id.text
-                                parent_resids.insert(0, parent_resid)
-                            top_path = self._resourceIdToPath(parent_resid)
-                            logging.debug("Found parent path %s in cache for resource ID %s" % (top_path, parent_resid))
-                        self._walk(top_path)
-                        # Download the top_path subtree here.
-                        if download:
-                            self.download(top_path, self._config.getLocalPath(top_path), overwrite=True, interactive=interactive)
+        localpath = self._config.getLocalPath(path)
+        if not os.path.exists(localpath):
+            logging.debug("Local copy does not exist, fetching...")
+            self.download(path, localpath, overwrite=True, interactive=interactive)
+        else:
+            # Request change feed from the last changestamp.
+            # If no stored changestamp, then start at the beginning.
+            if self._metadata["changestamp"] == 0:
+                #self._metadata["changestamp"] = self._getLargestChangestamp() + 1
+                self._walk(root=path)
+                if download:
+                    self.download(path, localpath, overwrite=True, interactive=interactive)
+            # Now check for changes again, since before we walked.
+            resource_ids = self._getChanges(self._metadata["changestamp"])
+            if len(resource_ids) > 0:
+                # Iterate over the changes, downloading each resource.
+                for res_id in resource_ids:
                     res_path = self._resourceIdToPath(res_id)
                     if res_path == None:
-                        logging.warn("No parent path found, must be a shared resource, skipping...")
-                        continue
-                # Check if resource path is in the path specified.
-                if res_path.startswith(path):
-                    logging.debug("Get resource %s (%s)" % (res_id, res_path))
-                    if download:
-                        self.download(res_path, self._config.getLocalPath(res_path), overwrite=True, interactive=interactive)
-                else:
-                    logging.debug("Ignoring change to path %s, not in target path %s" % (res_path, path))
+                        logging.debug("No local path for resource ID %s" % res_id)
+                        # The resource is not in our cache.
+                        resource = self._client.GetResourceById(res_id, show_root=True)
+                        if not resource:
+                            # TODO: This should never fail.
+                            logging.error("Failed to get resource \"%s\"" % res_id)
+                            break
+                        self._printresource(resource)
+                        # Repeatedly get the parent until we find one in our cache, or else reach the root,
+                        # which should always exist. If it has no parent, and is not in root, then it must
+                        # be shared.
+                        # TODO: support shared resources somehow.
+                        parents = resource.InCollections()
+                        for parent in parents:
+                            logging.debug("parent: %s" % parent.href)
+                            if parent.href == self._config.ROOT_FOLDER_HREF:
+                                logging.debug("Parent is root folder")
+                                top_path = '/'
+                            else:
+                                parent_resource = self._client.GetResourceBySelfLink(parent.href, show_root=True)
+                                parent_resid = parent_resource.resource_id.text
+                                logging.debug("Parent resource ID %s" % parent_resid)
+                                parent_resids = [parent_resid]
+                                while parent_resid not in self._metadata["map"]["byid"]:
+                                    logging.debug("Parent resource ID %s not in cache" % parent_resid)
+                                    parent = parent.InCollections()
+                                    parent_resource = self._client.GetResourceBySelfLink(parent.href, show_root=True)
+                                    parent_resid = parent_resource.resource_id.text
+                                    parent_resids.insert(0, parent_resid)
+                                top_path = self._resourceIdToPath(parent_resid)
+                                logging.debug("Found parent path %s in cache for resource ID %s" % (top_path, parent_resid))
+                            self._walk(top_path)
+                            # Download the top_path subtree here.
+                            if download:
+                                self.download(top_path, self._config.getLocalPath(top_path), overwrite=True, interactive=interactive)
+                        res_path = self._resourceIdToPath(res_id)
+                        if res_path == None:
+                            logging.warn("No parent path found, must be a shared resource, skipping...")
+                            continue
+                    # Check if resource path is in the path specified.
+                    if res_path.startswith(path):
+                        logging.debug("Get resource %s (%s)" % (res_id, res_path))
+                        if download:
+                            self.download(res_path, self._config.getLocalPath(res_path), overwrite=True, interactive=interactive)
+                    else:
+                        logging.debug("Ignoring change to path %s, not in target path %s" % (res_path, path))
         self._save()
 
     def getNumResources(self, path=None):

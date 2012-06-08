@@ -77,7 +77,11 @@ class Daemon(object):
         pid = str(os.getpid())
         file(self._pidfile,'w+').write("%s\n" % pid)
 
-        formatter = Formatter()
+        debug = False
+        if self._loglevel == logging.DEBUG:
+            debug = True
+
+        formatter = Formatter(debug)
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(formatter)
         self._logger = logging.getLogger()

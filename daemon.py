@@ -80,8 +80,7 @@ class Daemon(object):
         debug = False
         if self._loglevel == logging.DEBUG:
             debug = True
-
-        formatter = Formatter(debug)
+        formatter = Formatter(debug=debug)
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(formatter)
         self._logger = logging.getLogger()

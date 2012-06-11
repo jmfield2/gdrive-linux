@@ -16,11 +16,14 @@
 
 import os, sys, time, logging
 
+from gdata.client import Error
+
 import daemon
 from gdocs import Session
 from drive_config import DriveConfig
 
 UPDATE_INTERVAL = 30    # Sync update interval in seconds.
+RETRY_INTERVAL = 60     # Retry interval in seconds.
 
 class DriveDaemon(daemon.Daemon, object):
     "Google Drive daemon class."
@@ -46,7 +49,11 @@ class DriveDaemon(daemon.Daemon, object):
             try:
                 session.update(download=True, interactive=False)
                 time.sleep(UPDATE_INTERVAL)
+            except Error:
+                logging.exception("Google Docs exception:")
+                time.sleep(RETRY_INTERVAL)
             except Exception:
                 logging.exception("Daemon exception:")
+                break
 
         logging.debug("Daemon exiting...")

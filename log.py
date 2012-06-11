@@ -21,7 +21,7 @@ class Formatter(logging.Formatter):
     "Custom log formatter class."
     
     _DEFAULT_FMT = '%(levelname)-8s [%(asctime)s] %(message)s'
-    _DEBUG_FMT = '%(levelname)-8s [%(asctime)s] %(filename)-16s %(lineno)-5d %(funcName)-16s  %(message)s'
+    _DEBUG_FMT = '%(levelname)-8s [%(asctime)s] %(filename)-16s %(lineno)-5d %(funcName)-24s  %(message)s'
     
     def __init__(self, debug=False):
         "Class constructor."

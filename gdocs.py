@@ -302,13 +302,13 @@ class Session(object):
             else:
                 files.append(itempath)
                 item["type"] = "file"
-            logging.debug("Getting metadata for path %s" % itempath)
-            metadata = self._getResourceMetadata(entry)
-            if metadata:
-                item.update(metadata)
-            else:
-                logging.warn("No metadata found for path %s, assuming shared resource" % itempath)
-                item["shared"] = "true"
+                logging.debug("Getting metadata for path %s" % itempath)
+                metadata = self._getResourceMetadata(entry)
+                if metadata:
+                    item.update(metadata)
+                else:
+                    logging.warn("No metadata found for path %s, assuming shared resource" % itempath)
+                    item["shared"] = "true"
             self._metadata["map"]["bypath"].add(itempath, item)
             self._metadata["map"]["byid"][itemid] = itempath
         folders.sort()
@@ -459,6 +459,7 @@ class Session(object):
     def getLocalFileChecksum(self, path):
         "Return the MD5 checksum of the specified local path, if it is a file."
         checksum = None
+        logging.debug("Getting MD5 for %s..." % path)
         if os.path.exists(path) and not os.path.isdir(path):
             f = open(path, 'rb')
             m = hashlib.md5()
@@ -473,13 +474,25 @@ class Session(object):
     def getRemoteFileChecksum(self, path):
         "Return the MD5 checksum of the specified remote path, if it is a file."
         checksum = None
+        logging.debug("Getting MD5 for %s..." % path)
         if not self.isFolder(path):
             if path.startswith(self._config.getLocalRoot()):
                 path = self._config.getRemotePath(path)
+            if path not in self._metadata["map"]["bypath"] or "md5checksum" not in self._metadata["map"]["bypath"][path]:
+                shared = None
+                try:
+                    shared = self._metadata["map"]["bypath"][path]["shared"]
+                except KeyError:
+                    # This will really only happen if the metadata is from an old version of the app.
+                    pass
+                if shared:
+                    return None
+                parent = '/' + '/'.join(path.split('/')[:-2])
+                self._readFolder(parent)
             try:
                 checksum = self._metadata["map"]["bypath"][path]["md5checksum"]
             except KeyError:
-                pass
+                logging.error("Path \"%s\" is not recognised!" % path)
         return checksum
 
     def getFileChecksum(self, path):

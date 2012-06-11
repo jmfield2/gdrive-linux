@@ -20,6 +20,7 @@ import pprint
 
 import gdocs
 from drived import DriveDaemon
+from drive_config import DriveConfig
 
 session = None
 commands = {}
@@ -155,8 +156,8 @@ Shows the status of the specified path.
 
 @command
 def md5(argv):
-    """Print the MD5 checksums of the local and remote copies of the specified file.
-gdrive md5  <path>
+    """Print the MD5 checksums of the local and remote copies of the specified remote file path.
+gdrive md5 <path>
 
 prints the local and remote MD5 checksums of the specified path.
 
@@ -166,7 +167,11 @@ prints the local and remote MD5 checksums of the specified path.
         return usage()
     else:
         path = argv[0]
-    print session.getFileChecksum(path)
+    config = DriveConfig()
+    rhash = session.getRemoteFileChecksum(path)
+    lpath = config.getLocalPath(path)
+    lhash = session.getLocalFileChecksum(lpath)
+    print "Local: path=%s md5=%s Remote: path=%s md5=%s" % (lpath, lhash, path, rhash)
 
 @command
 @alias("up")

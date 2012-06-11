@@ -36,17 +36,17 @@ class DriveDaemon(daemon.Daemon, object):
     def run(self):
         "Run the daemon."
         
-        try:
-            logging.debug("Creating session...")
-            session = Session(logger=self._logger)
-            if session == None:
-                sys.exit("Error, could not create Google Docs session!")
-    
-            while True:
-                logging.debug("Daemon poll loop...")
+        logging.debug("Creating session...")
+        session = Session(logger=self._logger)
+        if session == None:
+            sys.exit("Error, could not create Google Docs session!")
+
+        while True:
+            logging.debug("Daemon poll loop...")
+            try:
                 session.update(download=True, interactive=False)
                 time.sleep(UPDATE_INTERVAL)
-        except Exception:
-            logging.exception("Daemon exception:")
+            except Exception:
+                logging.exception("Daemon exception:")
 
         logging.debug("Daemon exiting...")

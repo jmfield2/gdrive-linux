@@ -235,6 +235,13 @@ class DriveConfig(object):
             path = path[1:]
         return os.path.join(root, path)
 
+    def getRemotePath(self, path):
+        "Return the remote path corresponding to the specified local path."
+        root = self.getLocalRoot()
+        if path.startswith(root):
+            return path[len(root):]
+        return path
+
     def getExcludes(self):
         "Get the list of folders/files to be excluded."
         return self._config["general"]["excludes"]

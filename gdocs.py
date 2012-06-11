@@ -17,6 +17,7 @@
 import os, sys, logging, pickle, pprint, stat, hashlib
 
 import gdata.gauth
+import gdata.client
 import gdata.docs.client
 
 from drive_config import DriveConfig
@@ -187,7 +188,6 @@ class Session(object):
                 # TODO: try to handle this better.
                 logging.error("Path \"%s\" is unknown!" % path)
                 raise KeyError
-        #logging.debug("path \"%s\" -> URI \"%s\"" % (path, uri))
         return uri
 
     def _pathToResourceId(self, path):
@@ -204,36 +204,40 @@ class Session(object):
                 # TODO: try to handle this better.
                 logging.error("Path \"%s\" is unknown!" % path)
                 raise KeyError
-        #logging.debug("path \"%s\" -> ID \"%s\"" % (path, res_id))
         return res_id
 
     def _readFolder(self, path):
         "Read the contents of a folder."
         logging.debug("Reading folder \"%s\"" % path)
         uri = self._pathToUri(path)
-        #logging.debug("Getting resources from %s" % uri)
         items = self._client.GetAllResources(uri=uri)
         folders = []
         files = []
         for entry in items:
             itempath = os.path.join(path, entry.title.text)
-            logging.debug("Resource: %s" % itempath)
             itemid = entry.resource_id.text
             item = { "path": itempath,
                      "resource_id": itemid,
                      "uri": entry.content.src,
                      "size": entry.quota_bytes_used.text }
+            item["shared"] = "false"
             if entry.get_resource_type() == 'folder':
                 item["type"] = "folder"
                 folders.append(itempath)
             else:
                 files.append(itempath)
                 item["type"] = "file"
-                metadata = self._getRemoteFileMetadata(entry)
+            try:
+                logging.debug("Getting metadata for path %s" % itempath)
+                metadata = self._getResourceMetadata(entry)
                 if metadata:
                     item.update(metadata)
                 else:
-                    logging.warn("No metadata found for path %s" % itempath)
+                    logging.warn("No metadata found for path %s, assuming shared resource" % itempath)
+                    item["shared"] = "true"
+            except gdata.client.Unauthorized:
+                logging.warn("Unauthorised error on path %s, assuming shared resource" % itempath)
+                item["shared"] = "true"
             self._metadata["map"]["bypath"].add(itempath, item)
             self._metadata["map"]["byid"][itemid] = itempath
         folders.sort()
@@ -291,7 +295,7 @@ class Session(object):
         "Return true if the specified path is a file."
         return not self.isFolder(path)
 
-    def _getRemoteFileMetadata(self, resource):
+    def _getResourceMetadata(self, resource):
         metadata = {}
         revisions = self._client.GetRevisions(resource)
         if revisions == None or len(revisions.entry) == 0:
@@ -650,4 +654,4 @@ class Session(object):
         resource = self._client.GetResourceById(res_id, show_root=True)
         if not resource:
             logging.error("Failed to get resource \"%s\"" % res_id)
-        return self._getRemoteFileMetadata(resource)
+        return self._getResourceMetadata(resource)

@@ -136,7 +136,37 @@ Lists the contents of the specified path. If no path is specified, then the root
     for path in folders:
         print path
     for path in files:
-        print path, session.getFileSize(path)
+        print path, session.getFileSize(path), session.getFileDate(path), session.getFileChecksum(path)
+
+@command
+def filestatus(argv):
+    """Show the status of a file.
+gdrive filestatus <path>
+
+Shows the status of the specified path.
+
+"""
+    path = None
+    if len(argv) == 0:
+        return usage()
+    else:
+        path = argv[0]
+    print session.filestatus(path, interactive=True)
+
+@command
+def md5(argv):
+    """Print the MD5 checksums of the local and remote copies of the specified file.
+gdrive md5  <path>
+
+prints the local and remote MD5 checksums of the specified path.
+
+"""
+    path = None
+    if len(argv) == 0:
+        return usage()
+    else:
+        path = argv[0]
+    print session.getFileChecksum(path)
 
 @command
 @alias("up")
@@ -152,21 +182,6 @@ Update the contents of the specified path, recursively. If no path is specified,
     else:
         path = argv[0]
     session.update(path, download=True, interactive=True)
-
-@command
-def sync(argv):
-    """Synchronise a folder.
-gdrive sync <path>
-
-Synchronise the contents of the specified path, recursively. If no path is specified, then the entire GDrive will be synchronised.
-This command will create a local copy of the specified folder tree, or if it exists already, will update it to match the server contents..
-"""
-    if len(argv) == 0:
-        path = '/'
-    else:
-        path = argv[0]
-    #session.sync(path)
-    sys.exit("Not implemented!")
 
 @command
 @alias("get")

@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, sys, logging, pickle, pprint, stat
+import os, sys, logging, pickle, pprint, stat, hashlib
 
 import gdata.gauth
 import gdata.docs.client
@@ -192,6 +192,9 @@ class Session(object):
 
     def _pathToResourceId(self, path):
         "Get the resource ID for a path."
+        root = self._config.getLocalRoot()
+        if path.startswith(root):
+            path = path[len(root):]
         if path == '/':
             res_id = "folder:root"
         else:
@@ -214,6 +217,7 @@ class Session(object):
         files = []
         for entry in items:
             itempath = os.path.join(path, entry.title.text)
+            logging.debug("Resource: %s" % itempath)
             itemid = entry.resource_id.text
             item = { "path": itempath,
                      "resource_id": itemid,
@@ -225,6 +229,11 @@ class Session(object):
             else:
                 files.append(itempath)
                 item["type"] = "file"
+                metadata = self._getRemoteFileMetadata(entry)
+                if metadata:
+                    item.update(metadata)
+                else:
+                    logging.warn("No metadata found for path %s" % itempath)
             self._metadata["map"]["bypath"].add(itempath, item)
             self._metadata["map"]["byid"][itemid] = itempath
         folders.sort()
@@ -282,13 +291,130 @@ class Session(object):
         "Return true if the specified path is a file."
         return not self.isFolder(path)
 
-    def getFileSize(self, path):
-        "Return the size in bytes of the specified path, if it is a file."
+    def _getRemoteFileMetadata(self, resource):
+        metadata = {}
+        revisions = self._client.GetRevisions(resource)
+        if revisions == None or len(revisions.entry) == 0:
+            logging.warn("No revisions found for resource!")
+            return None
+        revision = revisions.entry[0]
+        metadata["author"] = ""
+        metadata["email"] = ""
+        if len(revision.author) > 0:
+            metadata["author-name"] = revision.author[0].name.text
+            metadata["author-email"] = revision.author[0].email.text
+        metadata["updated"] = revision.updated.text
+        for child in revision.children:
+            if child.tag == "edited":
+                metadata["edited"] = child.text
+            if child.tag == "md5Checksum":
+                metadata["md5checksum"] = child.text
+        return metadata
+
+    def getRemoteFileAuthor(self, path):
+        "Return the author of the specified remote path, if it is a file."
+        author = {}
+        if not self.isFolder(path):
+            if path.startswith(self._config.getLocalRoot()):
+                path = self._config.getRemotePath(path)
+            try:
+                author["name"] = self._metadata["map"]["bypath"][path]["author-name"]
+                author["email"] = self._metadata["map"]["bypath"][path]["author-email"]
+            except KeyError:
+                author["name"] = None
+                author["email"] = None
+        return author
+
+    def getLocalFileDate(self, path):
+        "Return the last modified date of the specified local path, if it is a file."
+        date = None
+        if os.path.exists(path) and not os.path.isdir(path):
+            size = os.path.getmtime(path)
+        return date
+
+    def getRemoteFileDate(self, path):
+        "Return the last modified date of the specified remote path, if it is a file."
+        date = None
+        if not self.isFolder(path):
+            if path.startswith(self._config.getLocalRoot()):
+                path = self._config.getRemotePath(path)
+            try:
+                date = self._metadata["map"]["bypath"][path]["updated"]
+            except KeyError:
+                pass
+        return date
+
+    def getFileDate(self, path):
+        "Return the last modified date of the specified local or remote path, if it is a file."
+        date = None
+        if os.path.exists(path):
+            date = self.getLocalFileDate(path)
+        else:
+            date = self.getRemoteFileDate(path)
+        return date
+
+    def getLocalFileSize(self, path):
+        "Return the size in bytes of the specified local path, if it is a file."
+        size = 0
+        if os.path.exists(path) and not os.path.isdir(path):
+            size = os.path.getsize(path)
+        return size
+
+    def getRemoteFileSize(self, path):
+        "Return the size in bytes of the specified remote path, if it is a file."
         size = 0
         if not self.isFolder(path):
-            if path in self._metadata["map"]["bypath"]:
+            if path.startswith(self._config.getLocalRoot()):
+                path = self._config.getRemotePath(path)
+            try:
                 size = int(self._metadata["map"]["bypath"][path]["size"])
+            except KeyError:
+                pass
         return size
+
+    def getFileSize(self, path):
+        "Return the size in bytes of the specified local or remote path, if it is a file."
+        size = 0
+        if os.path.exists(path):
+            size = self.getLocalFileSize(path)
+        else:
+            size = self.getRemoteFileSize(path)
+        return size
+
+    def getLocalFileChecksum(self, path):
+        "Return the MD5 checksum of the specified local path, if it is a file."
+        checksum = None
+        if os.path.exists(path) and not os.path.isdir(path):
+            f = open(path, 'rb')
+            m = hashlib.md5()
+            while True:
+                data = f.read(64 * 1024)
+                if not data:
+                    break
+                m.update(data)
+            checksum = m.hexdigest()
+        return checksum
+
+    def getRemoteFileChecksum(self, path):
+        "Return the MD5 checksum of the specified remote path, if it is a file."
+        checksum = None
+        if not self.isFolder(path):
+            if path.startswith(self._config.getLocalRoot()):
+                path = self._config.getRemotePath(path)
+            try:
+                checksum = self._metadata["map"]["bypath"][path]["md5checksum"]
+            except KeyError:
+                pass
+        return checksum
+
+    def getFileChecksum(self, path):
+        "Return the MD5 checksum of the specified local or remote path, if it is a file."
+        checksum = None
+        if os.path.exists(path):
+            checksum = self.getLocalFileChecksum(path)
+        else:
+            checksum = self.getRemoteFileChecksum(path)
+        return checksum
 
     def _getLargestChangestamp(self):
         "Returns the largest changestamp."
@@ -457,7 +583,7 @@ class Session(object):
                 self._download(folder, lpath, overwrite)
             self._folder_count += 1
         else:
-            logging.info("Downloading file %s (%d bytes) (%d of %d)..." % (localpath, self.getFileSize(path), self._file_count, self._num_files))
+            logging.info("Downloading file %s (%d bytes) (%d of %d)..." % (localpath, self.getRemoteFileSize(path), self._file_count, self._num_files))
             if self._bar:
                 self._bar.render(self._file_count * 100 / self._num_files, localpath)
             if not self._config.checkLocalFile(localpath, overwrite):
@@ -517,3 +643,11 @@ class Session(object):
     def dump(self):
         "Dump metadata."
         pprint.pprint(self._metadata, indent=2)
+
+    def filestatus(self, path, interactive=False):
+        "Get the status of a file."
+        res_id = self._pathToResourceId(path)
+        resource = self._client.GetResourceById(res_id, show_root=True)
+        if not resource:
+            logging.error("Failed to get resource \"%s\"" % res_id)
+        return self._getRemoteFileMetadata(resource)

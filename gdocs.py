@@ -209,6 +209,9 @@ class Session(object):
             try:
                 revisions = self._client.GetRevisions(resource)
                 return revisions
+            except gdata.client.Unauthorized:
+                logging.warn("Unauthorised error on resource")
+                return None
             except:
                 time.sleep((2 ** n) + (random.randint(0, 1000) / 1000))
         logging.fatal("An error occurred contacting the Google servers, the request never succeeded, aborting.")
@@ -299,16 +302,12 @@ class Session(object):
             else:
                 files.append(itempath)
                 item["type"] = "file"
-            try:
-                logging.debug("Getting metadata for path %s" % itempath)
-                metadata = self._getResourceMetadata(entry)
-                if metadata:
-                    item.update(metadata)
-                else:
-                    logging.warn("No metadata found for path %s, assuming shared resource" % itempath)
-                    item["shared"] = "true"
-            except gdata.client.Unauthorized:
-                logging.warn("Unauthorised error on path %s, assuming shared resource" % itempath)
+            logging.debug("Getting metadata for path %s" % itempath)
+            metadata = self._getResourceMetadata(entry)
+            if metadata:
+                item.update(metadata)
+            else:
+                logging.warn("No metadata found for path %s, assuming shared resource" % itempath)
                 item["shared"] = "true"
             self._metadata["map"]["bypath"].add(itempath, item)
             self._metadata["map"]["byid"][itemid] = itempath

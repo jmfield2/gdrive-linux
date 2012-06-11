@@ -487,9 +487,8 @@ class Session(object):
         self._file_count = 0
 
     def _upload(self, localpath, path):
-        "Download a file."
+        "Upload a file."
         logging.error("Upload is not yet implemented!")
-        return False
 
     def upload(self, localpath, path=None, interactive=False):
         "Upload a file or a folder tree."

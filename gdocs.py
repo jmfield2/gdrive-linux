@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, sys, logging, pickle, pprint, stat, hashlib
+import os, sys, logging, pickle, pprint, stat, hashlib, random, time
 
 import gdata.gauth
 import gdata.client
@@ -142,6 +142,78 @@ class Session(object):
         logging.info("Authorising the Docs client API...")
         self._client = self._token.authorize(self._client)
 
+    # Wrapper for gdata.docs.client.GetAllResources.
+    def _getAllResources(self, uri):
+        "Get all resources, with exponential backoff and retry." 
+        for n in range(0, 5):
+            try:
+                items = self._client.GetAllResources(uri=uri)
+                return items
+            except:
+                time.sleep((2 ** n) + (random.randint(0, 1000) / 1000))
+        logging.fatal("An error occurred contacting the Google servers, the request never succeeded, aborting.")
+        return None
+    
+    # Wrapper for gdata.docs.client.GetResourceById.
+    def _getResourceById(self, res_id, show_root=True):
+        "Get resource by ID, with exponential backoff and retry." 
+        for n in range(0, 5):
+            try:
+                resource = self._client.GetResourceById(res_id, show_root=show_root)
+                return resource
+            except:
+                time.sleep((2 ** n) + (random.randint(0, 1000) / 1000))
+        logging.fatal("An error occurred contacting the Google servers, the request never succeeded, aborting.")
+        return None
+    
+    # Wrapper for gdata.docs.client.GetResourceBySelfLink.
+    def _getResourceBySelfLink(self, href, show_root=True):
+        "Get resource by self link, with exponential backoff and retry." 
+        for n in range(0, 5):
+            try:
+                resource = self._client.GetResourceBySelfLink(href, show_root=show_root)
+                return resource
+            except:
+                time.sleep((2 ** n) + (random.randint(0, 1000) / 1000))
+        logging.fatal("An error occurred contacting the Google servers, the request never succeeded, aborting.")
+        return None
+    
+    # Wrapper for gdata.docs.client.GetChanges.
+    def _getChanges(self, changestamp=None, max_results=100, show_root=True):
+        "Get a change feed, with exponential backoff and retry." 
+        for n in range(0, 5):
+            try:
+                feed = self._client.GetChanges(changestamp, max_results, show_root)
+                return feed
+            except:
+                time.sleep((2 ** n) + (random.randint(0, 1000) / 1000))
+        logging.fatal("An error occurred contacting the Google servers, the request never succeeded, aborting.")
+        return None
+
+    # Wrapper for gdata.docs.client.GetNext.
+    def _getNext(self, feed):
+        "Get next chink of entries from feed, with exponential backoff and retry." 
+        for n in range(0, 5):
+            try:
+                feed = self._client.GetNext(feed)
+                return feed
+            except:
+                time.sleep((2 ** n) + (random.randint(0, 1000) / 1000))
+        logging.fatal("An error occurred contacting the Google servers, the request never succeeded, aborting.")
+        return None
+
+    # Wrapper for gdata.docs.client.GetRevisions.
+    def _getRevisions(self, resource):
+        "Get a revisions feed, with exponential backoff and retry." 
+        for n in range(0, 5):
+            try:
+                revisions = self._client.GetRevisions(resource)
+                return revisions
+            except:
+                time.sleep((2 ** n) + (random.randint(0, 1000) / 1000))
+        logging.fatal("An error occurred contacting the Google servers, the request never succeeded, aborting.")
+        return None
+
     def getMetadata(self):
         "Return Google Docs user metadata."
         metadata = self._client.GetMetadata()
@@ -210,7 +282,7 @@ class Session(object):
         "Read the contents of a folder."
         logging.debug("Reading folder \"%s\"" % path)
         uri = self._pathToUri(path)
-        items = self._client.GetAllResources(uri=uri)
+        items = self._getAllResources(uri)
         folders = []
         files = []
         for entry in items:
@@ -297,7 +369,7 @@ class Session(object):
 
     def _getResourceMetadata(self, resource):
         metadata = {}
-        revisions = self._client.GetRevisions(resource)
+        revisions = self._getRevisions(resource)
         if revisions == None or len(revisions.entry) == 0:
             logging.warn("No revisions found for resource!")
             return None
@@ -426,20 +498,20 @@ class Session(object):
         logging.debug("Max changestamp: %d" % metadict["changestamp"])
         return metadict["changestamp"]
 
-    def _getChanges(self, changestamp=0):
+    def _getChangeList(self, changestamp=0):
         "Get a list of resource IDs that have changed since the specified changestamp."
         changes = []
         resource_ids = []
         if changestamp == 0:
             logging.debug("Getting all changes...")
-            feed = self._client.GetChanges(max_results=self._config.MAX_RESULTS, show_root=True)
+            feed = self._getChanges(max_results=self._config.MAX_RESULTS, show_root=True)
         else:
             logging.debug("Getting changes since changestamp=%s..." % changestamp)
-            feed = self._client.GetChanges(changestamp=str(changestamp), max_results=self._config.MAX_RESULTS, show_root=True)
+            feed = self._getChanges(changestamp=str(changestamp), max_results=self._config.MAX_RESULTS, show_root=True)
         if feed:
             changes.extend(feed.entry)
         while feed and len(feed.entry) == self._config.MAX_RESULTS:
-            feed = self._client.GetNext(feed)
+            feed = self._getNext(feed)
             changes.extend(feed.entry)
         if len(changes) > 0:
             # Save a changestamp of one beyond the last.
@@ -468,7 +540,7 @@ class Session(object):
                 if download:
                     self.download(path, localpath, overwrite=True, interactive=interactive)
             # Now check for changes again, since before we walked.
-            resource_ids = self._getChanges(self._metadata["changestamp"])
+            resource_ids = self._getChangeList(self._metadata["changestamp"])
             if len(resource_ids) > 0:
                 # Iterate over the changes, downloading each resource.
                 for res_id in resource_ids:
@@ -476,7 +548,7 @@ class Session(object):
                     if res_path == None:
                         logging.debug("No local path for resource ID %s" % res_id)
                         # The resource is not in our cache.
-                        resource = self._client.GetResourceById(res_id, show_root=True)
+                        resource = self._getResourceById(res_id, show_root=True)
                         if not resource:
                             # TODO: This should never fail.
                             logging.error("Failed to get resource \"%s\"" % res_id)
@@ -493,14 +565,14 @@ class Session(object):
                                 logging.debug("Parent is root folder")
                                 top_path = '/'
                             else:
-                                parent_resource = self._client.GetResourceBySelfLink(parent.href, show_root=True)
+                                parent_resource = self._getResourceBySelfLink(parent.href, show_root=True)
                                 parent_resid = parent_resource.resource_id.text
                                 logging.debug("Parent resource ID %s" % parent_resid)
                                 parent_resids = [parent_resid]
                                 while parent_resid not in self._metadata["map"]["byid"]:
                                     logging.debug("Parent resource ID %s not in cache" % parent_resid)
                                     parent = parent.InCollections()
-                                    parent_resource = self._client.GetResourceBySelfLink(parent.href, show_root=True)
+                                    parent_resource = self._getResourceBySelfLink(parent.href, show_root=True)
                                     parent_resid = parent_resource.resource_id.text
                                     parent_resids.insert(0, parent_resid)
                                 top_path = self._resourceIdToPath(parent_resid)
@@ -568,7 +640,7 @@ class Session(object):
         "Download a file."
         entry = None
         if path != '/':
-            entry = self._client.GetResourceById(self._pathToResourceId(path))
+            entry = self._getResourceById(self._pathToResourceId(path))
             if not entry:
                 logging.error("Failed to download path \"%s\"" % path)
                 return False
@@ -651,7 +723,7 @@ class Session(object):
     def filestatus(self, path, interactive=False):
         "Get the status of a file."
         res_id = self._pathToResourceId(path)
-        resource = self._client.GetResourceById(res_id, show_root=True)
+        resource = self._getResourceById(res_id, show_root=True)
         if not resource:
             logging.error("Failed to get resource \"%s\"" % res_id)
         return self._getResourceMetadata(resource)

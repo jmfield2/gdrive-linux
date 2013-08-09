@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This code is part of gdrive-linux (https://code.google.com/p/gdrive-linux/).
 
 import sys
 import os

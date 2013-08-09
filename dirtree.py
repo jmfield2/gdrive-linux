@@ -17,6 +17,7 @@
 # Based in part on pytrie, https://bitbucket.org/gsakkis/pytrie/
 # Copyright (c) 2009, George Sakkis
 
+# This code is part of gdrive-linux (https://code.google.com/p/gdrive-linux/).
 
 from UserDict import DictMixin
 

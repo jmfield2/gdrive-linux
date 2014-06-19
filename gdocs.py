@@ -704,7 +704,39 @@ class Session(object):
 
     def _upload(self, localpath, path):
         "Upload a file."
-        logging.error("Upload is not yet implemented!")
+
+	# http://planzero.org/blog/2012/04/13/uploading_any_file_to_google_docs_with_python
+
+	# The default root collection URI
+	uri = 'https://docs.google.com/feeds/upload/create-session/default/private/full'
+
+	# if collection path is set
+	if path <> "/":
+		resources = self._client.GetAllResources(uri='https://docs.google.com/feeds/default/private/full/-/folder?title=' + path + '&title-exact=true')
+
+		uri = resources[0].get_resumable_create_media_link().href
+	
+	# Make sure Google doesn't try to do any conversion on the upload (e.g. convert images to documents)
+	uri += '?convert=false'
+
+	# Create an uploader and upload the file
+	# Hint: it should be possible to use UploadChunk() to allow display of upload statistics for large uploads
+	t1 = time.time()
+
+	fh = open(localpath)
+	import magic
+	import atom
+	file_type = magic.Magic(mime=True).from_file(fh.name)
+	file_size = os.path.getsize(fh.name)
+
+	logging.info("Uploading...")
+	uploader = gdata.client.ResumableUploader(self._client, fh, file_type, file_size, chunk_size=1048576, desired_class=gdata.data.GDEntry)
+	res = uploader.UploadFile(uri, entry=gdata.data.GDEntry(title=atom.data.Title(text=os.path.basename(fh.name))))
+
+	logging.info('Uploaded', '{0:.2f}'.format(file_size / 1024 / 1024) + ' MiB in ' + str(round(time.time() - t1, 2)) + ' seconds')
+	logging.info("Created: %s" % res)
+
+        #logging.error("Upload is not yet implemented!")
 
     def upload(self, localpath, path=None, interactive=False):
         "Upload a file or a folder tree."
